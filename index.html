@@ -31,6 +31,18 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
+    .loader {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #10b981;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 
@@ -115,15 +127,12 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // ★★★ ステップ1: Google Maps APIキーを設定してください ★★★
+    // ★★★ Google Maps APIキーを設定してください ★★★
     const GOOGLE_MAPS_API_KEY = "AIzaSyDrAtwrrKDve0v9s96OZ5eeXXiaW7uYqFU"; 
 
-    // ★★★ ステップ2: Gemini APIキーを設定してください ★★★
-    const GEMINI_API_KEY = "AIzaSyB-3rnYDrJG5D3Tiaj7GGyPJ3F5Mz8fmVc";
-
-    // --- SVGアイコン定義 ---
+    // --- アイコン定義 ---
     const icons = {
       compass: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`,
       search: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
@@ -132,7 +141,8 @@
       mapPin: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
       list: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
       checkCircle: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
-      sparkles: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>`
+      camera: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+      trash: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`
     };
 
     const rawCSV = `行,頭文字,読みテキスト,場所・関連地域,マップ登録,緯度,経度
@@ -143,7 +153,7 @@
 あ行,お,おりづるに ねがいをこめて おがわわし,小川町・東秩父村（細川紙）,TRUE,36.0594,139.2612
 か行,か,かわごえの おとなりひびく ときのかね,川越市（時の鐘）,TRUE,35.9238,139.4827
 か行,き,きんちゃくだ まっかにそめる ひがんぱな,日高市（巾着田）,FALSE,35.8814,139.3094
-か行,く,くモよりも たかくとんでけ しらこばと,越谷市（キャンベルタウン野鳥の森）,FALSE,35.8953,139.7997
+か行,く,くもよりも たかくとんでけ しらこばと,越谷市（キャンベルタウン野鳥の森）,FALSE,35.8953,139.7997
 か行,け,けやきのき せみもこかげの なつやすみ,埼玉県全域（県の木）,FALSE,35.8569,139.6488
 か行,こ,こふんぐん むさしのごうぞく ねむるはか,行田市（さきたま古墳群）,TRUE,36.1248,139.4795
 さ行,さ,さくらそう かれんにやさしく けんのはな,さいたま市（田島ヶ原）,FALSE,35.8427,139.6083
@@ -154,7 +164,7 @@
 た行,た,たいいくさい ちちぶおんどで もりあがる,秩父市（秩父音頭発祥）,FALSE,36.0691,139.0965
 た行,ち,ちょうみんが かぶきやくしゃの おがのまち,小鹿野町（小鹿野歌舞伎）,FALSE,36.0123,139.0069
 た行,つ,つうせんぼり えどまでむすぶ かわのみち,さいたま市緑区（見沼通船堀）,FALSE,35.8703,139.7118
-た行,て,でんとうの ささらししまい うけつぐこ,県内各地（熊野神社など・獅子舞）,FALSE,35.971486,138.975722
+た行,て,でんとうの ささらししまい うけつぐこ,県内各地（獅子舞）,FALSE,35.971486,138.975722
 た行,と,とおいたび みちすじかたる とねのみず,利根川流域（加須市など）,FALSE,36.1288,139.5982
 な行,な,なつのよる はちがたじょうに さくはなび,寄居町（鉢形城跡）,FALSE,36.1158,139.1979
 な行,に,にらめっこ ぶしゅうだるまの めをいれて,越谷市（越谷だるま）,FALSE,35.8906,139.791
@@ -165,8 +175,8 @@
 は行,ひ,ひゃくあなの しぜんのほうこ ひかりごけ,吉見町（吉見百穴・ヒカリゴケ）,FALSE,36.0384,139.4216
 は行,ふ,ふるさとの さくらのめいしょ ごんげんどう,幸手市（権現堂桜堤）,FALSE,36.0886,139.7262
 は行,へ,べーごまは いもののふるさと かわぐちさん,川口市（鋳物・ベーゴマ）,FALSE,35.8016,139.717
-は行,ほ,ほいっする ひびけこころの すたじあむ,さいたま市（埼玉スタジアム2002など）,FALSE,35.9031,139.7162
-ま行,ま,まが玉は かこと mらいの くびかざり,行田市（さきたま古墳群・勾玉）,FALSE,36.1249,139.4796
+は行,ほ,ほいっする ひびけこころの すたじあむ,さいたま市（埼玉スタジアム2002）,FALSE,35.9031,139.7162
+ま行,ま,まが玉は かことみらいの くびかざり,行田市（さきたま古墳群・勾玉）,FALSE,36.1249,139.4796
 ま行,み,みぬまのた れきしをうつし そらかつぐ,さいたま市など（見沼田んぼ）,FALSE,35.8858,139.6737
 ま行,む,むさしのの おもかげのこる へいりんじ,新座市（平林寺）,FALSE,35.7954,139.554
 ま行,め,めろでぃに ふるさとのせて しもふさかんいち,加須市（下総皖一）,FALSE,36.1344,139.5967
@@ -191,7 +201,6 @@
         kana: cols[1],
         text: cols[2],
         place: cols[3],
-        isMapped: cols[4] === 'TRUE',
         lat: parseFloat(cols[5]),
         lng: parseFloat(cols[6])
       };
@@ -203,8 +212,8 @@
       searchQuery: '',
       selectedPlace: null,
       db: null,
-      geminiResult: null,
-      isGeminiLoading: false
+      isSaving: false,
+      isConfirmingDelete: false // 削除確認状態
     };
 
     const searchInput = document.getElementById('search-input');
@@ -224,7 +233,6 @@
     document.getElementById('icon-star-header').innerHTML = icons.star;
     document.getElementById('icon-search').innerHTML = icons.search;
     document.getElementById('icon-x-search').innerHTML = icons.x;
-    document.getElementById('icon-star').innerHTML = icons.star;
     document.getElementById('icon-mappin-title').innerHTML = icons.mapPin;
     document.getElementById('icon-list').innerHTML = icons.list;
 
@@ -237,15 +245,7 @@
     window.gm_authFailure = function () {
       const mapContainer = document.getElementById("map-container");
       if (mapContainer) {
-        const origin = window.location.origin;
-        mapContainer.innerHTML = `
-          <div class="flex flex-col items-center justify-center h-full bg-white p-6 text-center text-gray-500 overflow-y-auto">
-            <span class="text-4xl mb-3">⚠️</span>
-            <p class="font-bold mb-2 text-gray-700">マップ認証エラー</p>
-            <p class="text-xs text-left bg-gray-50 p-3 rounded border border-gray-200">
-              GCPコンソールでAPIキーの許可設定を確認してください。
-            </p>
-          </div>`;
+        mapContainer.innerHTML = `<div class="flex items-center justify-center h-full bg-white p-6 text-center text-gray-500">GCPの許可リストに現在のURLを追加してください。</div>`;
       }
     };
 
@@ -259,7 +259,6 @@
       });
 
       placesData.forEach(place => {
-        if (!place.lat || !place.lng) return;
         const marker = new google.maps.Marker({
           position: { lat: place.lat, lng: place.lng },
           map: map,
@@ -267,8 +266,7 @@
         });
         marker.addListener('click', () => {
           state.selectedPlace = place;
-          state.geminiResult = null;
-          state.isGeminiLoading = false;
+          state.isConfirmingDelete = false;
           renderModal();
         });
         markers[place.id] = marker;
@@ -288,7 +286,6 @@
     }
 
     function loadGoogleMaps() {
-      if (GOOGLE_MAPS_API_KEY.includes("YOUR_GOOGLE")) return;
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap`;
       script.async = true;
@@ -334,76 +331,79 @@
         snapshot.forEach(doc => { visits[doc.id] = doc.data(); });
         state.visitedPlaces = visits;
         renderAll();
-      }, (error) => { });
+      });
     }
 
-    // --- Gemini API 呼び出しロジック (エラー回避のため指示をプロンプトに統合) ---
-    async function askGemini(type, place) {
-      if (GEMINI_API_KEY.includes("YOUR_GEMINI")) {
-        state.geminiResult = "API キーが未設定です。";
-        renderModal();
-        return;
-      }
+    // 画像の縮小処理 (1MB制限対策)
+    const resizeImage = (file) => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 800;
+            const scaleSize = MAX_WIDTH / img.width;
+            canvas.width = MAX_WIDTH;
+            canvas.height = img.height * scaleSize;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.7)); // 品質70%で出力
+          };
+        };
+      });
+    };
 
-      state.isGeminiLoading = true;
-      state.geminiResult = null;
+    // 保存処理
+    async function saveVisit(placeId, comment, photoBase64) {
+      if (!state.db) return;
+      state.isSaving = true;
       renderModal();
 
-      const systemRole = "あなたは埼玉県の魅力を楽しく伝える親しみやすいローカルガイドAIです。";
-      let userQuery = "";
-      if (type === "trivia") {
-        userQuery = `埼玉かるたの読み札「${place.text}」に関連する場所「${place.place}」について、子供でも興味を持てる面白い豆知識や歴史を3〜4文程度で教えて。`;
-      } else if (type === "diary") {
-        userQuery = `「${place.place}」（かるた：${place.text}）に家族で行った感想を、SNS投稿用に絵文字たっぷりで短く1案作成して。`;
-      }
-
-      // JSON構造エラーを避けるため、役割指示をテキストの先頭に統合します
-      const fullPrompt = `役割: ${systemRole}\n\n依頼内容: ${userQuery}`;
-
-      // モデル: gemini-2.0-flash / エンドポイント: v1
-      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-      const payload = {
-        contents: [{ 
-          parts: [{ text: fullPrompt }] 
-        }]
-      };
-
       try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const placeRef = doc(state.db, 'artifacts', appId, 'public', 'data', 'family_visits', placeId);
         
-        if (!response.ok || result.error) {
-          throw new Error(result.error?.message || `HTTP error! status: ${response.status}`);
-        }
+        const isNewVisit = !state.visitedPlaces[placeId];
+
+        await setDoc(placeRef, {
+          visited: true,
+          comment: comment || '',
+          photo: photoBase64 || state.visitedPlaces[placeId]?.photo || '',
+          timestamp: serverTimestamp(),
+          recordedBy: state.user.uid
+        }, { merge: true });
+
+        if (isNewVisit) triggerAnimation();
         
-        state.geminiResult = result.candidates?.[0]?.content?.parts?.[0]?.text || "回答を取得できませんでした。";
-      } catch (e) {
-        state.geminiResult = "エラーが発生しました: " + e.message;
-        console.error("Gemini API Error:", e);
+      } catch (error) {
+        console.error("Save error:", error);
       } finally {
-        state.isGeminiLoading = false;
-        renderModal();
+        state.isSaving = false;
+        state.selectedPlace = null;
+        renderAll();
       }
     }
 
-    async function toggleVisit(placeId) {
-      const isCurrentlyVisited = !!state.visitedPlaces[placeId];
-      if (isCurrentlyVisited) {
-        delete state.visitedPlaces[placeId];
-      } else {
-        state.visitedPlaces[placeId] = { visited: true, timestamp: new Date() };
-        triggerAnimation();
-      }
-      renderAll();
-      if (state.user && state.user.uid !== 'local-user' && state.db) {
+    // 削除処理（confirmの代わり）
+    async function executeDelete(placeId) {
+      if (!state.db) return;
+      state.isSaving = true;
+      renderModal();
+
+      try {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const placeRef = doc(state.db, 'artifacts', appId, 'public', 'data', 'family_visits', placeId);
-        if (isCurrentlyVisited) { await deleteDoc(placeRef); }
-        else { await setDoc(placeRef, { visited: true, timestamp: serverTimestamp(), recordedBy: state.user.uid }); }
+        await deleteDoc(placeRef);
+        state.isConfirmingDelete = false;
+        state.selectedPlace = null;
+        renderAll();
+      } catch (error) {
+        console.error("Delete error:", error);
+        state.isSaving = false;
+        renderModal();
       }
     }
 
@@ -433,8 +433,9 @@
         return;
       }
       listContainer.innerHTML = filteredPlaces.map(place => {
-        const isVisited = !!state.visitedPlaces[place.id];
-        const containerClass = isVisited ? 'border-orange-300 bg-orange-50 shadow-sm' : 'border-white bg-white shadow hover:border-green-200';
+        const visit = state.visitedPlaces[place.id];
+        const isVisited = !!visit;
+        const containerClass = isVisited ? 'border-orange-300 bg-orange-50' : 'border-white bg-white shadow';
         const iconClass = isVisited ? 'bg-orange-500 text-white' : 'bg-green-100 text-green-700';
         return `
           <div data-id="${place.id}" class="place-btn p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center active:scale-[0.98] ${containerClass}">
@@ -451,33 +452,124 @@
     function renderModal() {
       if (!state.selectedPlace) { modalRoot.innerHTML = ''; return; }
       const place = state.selectedPlace;
-      const isVisited = !!state.visitedPlaces[place.id];
-      const btnClass = isVisited ? 'bg-white text-orange-600 border-2 border-orange-500 shadow-sm' : 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/30';
-      const geminiUI = `
-        <div class="mt-6 border-t border-gray-100 pt-5">
-          <div class="flex flex-col gap-3">
-            <button class="ask-gemini-trivia bg-purple-50 text-purple-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95 transition-all">
-              <span class="mr-2">${icons.sparkles}</span> 豆知識を聞く (Gemini 2.0)
-            </button>
-            ${isVisited ? `<button class="ask-gemini-diary bg-blue-50 text-blue-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95 transition-all"><span class="mr-2">${icons.sparkles}</span> 感想文の下書き</button>` : ''}
-          </div>
-          ${state.isGeminiLoading ? `<div class="mt-4 p-4 bg-gray-50 rounded-xl text-sm text-center animate-pulse border border-gray-100"><span class="text-2xl mb-2 block animate-spin">✨</span>考えています...</div>` : state.geminiResult ? `<div class="mt-4 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl text-sm text-gray-800 leading-relaxed border border-purple-100 shadow-inner"><div class="flex items-center text-purple-800 font-bold mb-2 pb-1 border-b border-purple-200/50"><span class="mr-1">${icons.sparkles}</span> Geminiからのメッセージ</div><p class="whitespace-pre-wrap">${state.geminiResult}</p></div>` : ''}
-        </div>`;
+      const visit = state.visitedPlaces[place.id] || {};
+      const isVisited = !!visit.visited;
 
       modalRoot.innerHTML = `
         <div class="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 close-modal-bg transition-opacity">
           <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 pb-10 sm:pb-6 shadow-2xl slide-in max-h-[90vh] overflow-y-auto no-scrollbar">
             <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 sm:hidden"></div>
+            
             <div class="flex justify-between items-start mb-4">
               <div class="w-16 h-16 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-3xl font-bold shrink-0 shadow-inner">${place.kana}</div>
-              <button class="close-modal-btn p-2 bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors ml-4 shrink-0">${icons.x}</button>
+              <button class="close-modal-btn p-2 bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 ml-4 shrink-0">${icons.x}</button>
             </div>
-            <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-4 leading-relaxed">${place.text}</h3>
-            <div class="bg-gray-50 rounded-xl p-3 mb-6 border border-gray-100"><p class="text-gray-600 font-medium flex items-center"><span class="text-blue-500 mr-2 shrink-0">${icons.mapPin}</span><span class="break-words">${place.place}</span></p></div>
-            <button class="toggle-visit-btn w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center transition-all active:scale-[0.98] ${btnClass}">${isVisited ? `<span class="mr-2">${icons.checkCircle}</span> 行った！（タップで取り消し）` : `<span class="mr-2">${icons.compass}</span> この場所に行った！`}</button>
-            ${geminiUI}
+            
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-2 leading-relaxed">${place.text}</h3>
+            <p class="text-gray-500 text-sm mb-6 flex items-center"><span class="mr-1 w-3 h-3">${icons.mapPin}</span>${place.place}</p>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">感想・メモ</label>
+                <textarea id="comment-input" rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 outline-none transition-all" placeholder="楽しかったこと、食べたものなど...">${visit.comment || ''}</textarea>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">写真</label>
+                <div class="flex items-center gap-3">
+                  <label class="cursor-pointer bg-green-50 text-green-600 px-4 py-2 rounded-xl text-sm font-bold border border-green-200 hover:bg-green-100 transition-all flex items-center">
+                    <span class="mr-2">${icons.camera}</span> 写真を選ぶ
+                    <input type="file" id="photo-input" accept="image/*" class="hidden">
+                  </label>
+                  <span id="photo-status" class="text-xs text-gray-400"></span>
+                </div>
+                <div id="photo-preview-container" class="mt-3 relative ${visit.photo ? '' : 'hidden'}">
+                  <img id="photo-preview" src="${visit.photo || ''}" class="w-full h-48 object-cover rounded-xl border border-gray-100">
+                  <button id="remove-photo-btn" class="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-black/70 transition-all">${icons.trash}</button>
+                </div>
+              </div>
+
+              <button id="save-btn" class="w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center transition-all active:scale-[0.98] ${state.isSaving ? 'bg-gray-200 text-gray-400' : 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/30'}" ${state.isSaving ? 'disabled' : ''}>
+                ${state.isSaving ? '<div class="loader mr-2"></div> 保存中...' : (isVisited ? '記録を更新する' : 'この場所に行った！')}
+              </button>
+
+              ${isVisited ? `
+                <div id="delete-container" class="border-t border-gray-100 pt-3">
+                  ${state.isConfirmingDelete ? `
+                    <div class="bg-red-50 p-4 rounded-2xl border border-red-100">
+                      <p class="text-red-700 text-xs font-bold mb-3 text-center">本当に訪問記録を消去しますか？</p>
+                      <div class="flex gap-2">
+                        <button id="cancel-delete-btn" class="flex-1 py-3 bg-white text-gray-500 rounded-xl text-sm font-bold border border-gray-200 hover:bg-gray-50 transition-all">やめる</button>
+                        <button id="confirm-delete-btn" class="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-red-600 transition-all">消去する</button>
+                      </div>
+                    </div>
+                  ` : `
+                    <button id="show-delete-confirm-btn" class="w-full py-2 text-red-400 text-sm font-bold flex items-center justify-center opacity-70 hover:opacity-100 transition-all">
+                      <span class="mr-1">${icons.trash}</span> 訪問記録を消去する
+                    </button>
+                  `}
+                </div>
+              ` : ''}
+            </div>
           </div>
         </div>`;
+
+      // モーダル内のイベント紐付け
+      const photoInput = document.getElementById('photo-input');
+      if (photoInput) {
+        photoInput.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const status = document.getElementById('photo-status');
+            status.textContent = "処理中...";
+            const base64 = await resizeImage(file);
+            document.getElementById('photo-preview').src = base64;
+            document.getElementById('photo-preview-container').classList.remove('hidden');
+            status.textContent = "準備完了";
+          }
+        });
+      }
+
+      const removePhotoBtn = document.getElementById('remove-photo-btn');
+      if (removePhotoBtn) {
+        removePhotoBtn.addEventListener('click', () => {
+          document.getElementById('photo-preview').src = '';
+          document.getElementById('photo-preview-container').classList.add('hidden');
+          document.getElementById('photo-input').value = '';
+          document.getElementById('photo-status').textContent = "";
+        });
+      }
+
+      const saveBtn = document.getElementById('save-btn');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          const comment = document.getElementById('comment-input').value;
+          const photo = document.getElementById('photo-preview').src;
+          saveVisit(place.id, comment, photo.startsWith('data:') ? photo : null);
+        });
+      }
+
+      // 削除関連のイベント
+      const showDeleteConfirmBtn = document.getElementById('show-delete-confirm-btn');
+      if (showDeleteConfirmBtn) {
+        showDeleteConfirmBtn.addEventListener('click', () => {
+          state.isConfirmingDelete = true;
+          renderModal();
+        });
+      }
+
+      const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+      if (cancelDeleteBtn) {
+        cancelDeleteBtn.addEventListener('click', () => {
+          state.isConfirmingDelete = false;
+          renderModal();
+        });
+      }
+
+      const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+      if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', () => executeDelete(place.id));
+      }
     }
 
     function triggerAnimation() {
@@ -514,29 +606,15 @@
       const placeBtn = e.target.closest('.place-btn');
       if (placeBtn) {
         state.selectedPlace = placesData.find(p => p.id === placeBtn.dataset.id);
-        state.geminiResult = null;
-        state.isGeminiLoading = false;
+        state.isConfirmingDelete = false;
         renderModal();
-        return;
-      }
-      if (e.target.closest('.toggle-visit-btn') && state.selectedPlace) {
-        toggleVisit(state.selectedPlace.id);
-        return;
-      }
-      if (e.target.closest('.ask-gemini-trivia') && state.selectedPlace) {
-        askGemini("trivia", state.selectedPlace);
-        return;
-      }
-      if (e.target.closest('.ask-gemini-diary') && state.selectedPlace) {
-        askGemini("diary", state.selectedPlace);
         return;
       }
       const closeBtn = e.target.closest('.close-modal-btn');
       const closeBg = e.target.closest('.close-modal-bg');
       if (closeBtn || (closeBg && e.target === closeBg)) {
         state.selectedPlace = null;
-        state.geminiResult = null;
-        state.isGeminiLoading = false;
+        state.isConfirmingDelete = false;
         renderModal();
       }
     });
