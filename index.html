@@ -207,7 +207,6 @@
       isGeminiLoading: false
     };
 
-    // DOM要素の取得
     const searchInput = document.getElementById('search-input');
     const clearSearchBtn = document.getElementById('clear-search');
     const totalVisitedEl = document.getElementById('total-visited');
@@ -235,7 +234,6 @@
     let map = null;
     const markers = {};
 
-    // Google Maps認証エラー対応
     window.gm_authFailure = function () {
       const mapContainer = document.getElementById("map-container");
       if (mapContainer) {
@@ -245,8 +243,7 @@
             <span class="text-4xl mb-3">⚠️</span>
             <p class="font-bold mb-2 text-gray-700">マップ認証エラー</p>
             <p class="text-xs text-left bg-gray-50 p-3 rounded border border-gray-200">
-              GCPコンソールでAPIキーの「ウェブサイト制限」に現在のURLが追加されていません。<br><br>
-              以下のURLをコピーして、GCPの許可リスト（HTTPリファラー）に追加してください：<br><br>
+              GCPコンソールでAPIキーを許可してください：<br><br>
               <code class="font-bold text-red-500 bg-red-50 p-1 block">${origin}/*</code>
             </p>
           </div>`;
@@ -300,7 +297,6 @@
       document.head.appendChild(script);
     }
 
-    // --- Firebase初期化 ---
     async function initFirebase() {
       if (typeof __firebase_config === 'undefined') {
         state.user = { uid: 'local-user' };
@@ -342,10 +338,10 @@
       }, (error) => { });
     }
 
-    // --- Gemini 2.0 API 呼び出しロジック ---
+    // --- Gemini 2.0 API 呼び出しロジック (安定版 v1 / gemini-2.0-flash) ---
     async function askGemini(type, place) {
       if (GEMINI_API_KEY.includes("YOUR_GEMINI")) {
-        state.geminiResult = "コード内の API キーを設定してください。";
+        state.geminiResult = "API キーが未設定です。コードを確認してください。";
         renderModal();
         return;
       }
@@ -361,7 +357,7 @@
         prompt = `「${place.place}」（かるた：${place.text}）に家族で行ってきました！という内容で、SNS（InstagramやXなど）に投稿できるような、絵文字たっぷりの楽しくて短い感想文のドラフトを1つ作成してください。`;
       }
 
-      // ★★★ 最新の Gemini 2.0 Flash を使用します ★★★
+      // 最新の安定版 v1 エンドポイントと gemini-2.0-flash を使用
       const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
         contents: [{ 
