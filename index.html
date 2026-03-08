@@ -129,8 +129,22 @@
     import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // ★★★ Google Maps APIキーを設定してください ★★★
+    // --- 設定情報の取得 ---
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'saitamakaruta-project-20-a6865';
+    
+    // ★ Google Maps APIキー
     const GOOGLE_MAPS_API_KEY = "AIzaSyDrAtwrrKDve0v9s96OZ5eeXXiaW7uYqFU"; 
+
+    // ★ Firebase設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyA_n1DCJ5s2y0LoGQHGEnin-EbFPE-2uyk",
+      authDomain: "saitamakaruta-project-20-a6865.firebaseapp.com",
+      projectId: "saitamakaruta-project-20-a6865",
+      storageBucket: "saitamakaruta-project-20-a6865.firebasestorage.app",
+      messagingSenderId: "607593944513",
+      appId: "1:607593944513:web:053a4db3bdef8281cfcb40",
+      measurementId: "G-9XMBMXZ8R8"
+    };
 
     // --- アイコン定義 ---
     const icons = {
@@ -145,53 +159,53 @@
       trash: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`
     };
 
-    const rawCSV = `行,頭文字,読みテキスト,場所・関連地域,マップ登録,緯度,経度
-あ行,あ,あさつゆに ぬれてかがやく こだいはす,行田市（古代蓮の里）,FALSE,36.126526,139.485125
-あ行,い,いざしゅつじん たいへいめざし なおざねこう,熊谷市（熊谷直実ゆかりの地）,FALSE,36.1453,139.3855
-あ行,う,うちゅうまで ゆめをとどけた わかたこういち,さいたま市（さいたま市青少年宇宙科学館）,FALSE,35.8674,139.6738
-あ行,え,えいいちも たべたねぎいり にぼうとう,深谷市（渋沢栄一記念館）,FALSE,36.2238,139.2628
-あ行,お,おりづるに ねがいをこめて おがわわし,小川町・東秩父村（細川紙）,TRUE,36.0594,139.2612
-か行,か,かわごえの おとなりひびく ときのかね,川越市（時の鐘）,TRUE,35.9238,139.4827
-か行,き,きんちゃくだ まっかにそめる ひがんぱな,日高市（巾着田）,FALSE,35.8814,139.3094
-か行,く,くもよりも たかくとんでけ しらこばと,越谷市（キャンベルタウン野鳥の森）,FALSE,35.8953,139.7997
-か行,け,けやきのき せみもこかげの なつやすみ,埼玉県全域（県の木）,FALSE,35.8569,139.6488
-か行,こ,こふんぐん むさしのごうぞく ねむるはか,行田市（さきたま古墳群）,TRUE,36.1248,139.4795
-さ行,さ,さくらそう かれんにやさしく けんのはな,さいたま市（田島ヶ原）,FALSE,35.8427,139.6083
-さ行,し,しょかつつつじ あきはもみじの りょうかみさん,小鹿野町・秩父市（両神山）,FALSE,36.0142,138.8354
-さ行,す,すみきった そらにむかって りゅうのまい,秩父市吉田（龍勢祭り/椋神社）,FALSE,36.0556,139.0274
-さ行,せ,せいりゅうに いきながらえよ むさしとみよ,熊谷市（ムサシトミヨ保護センター）,FALSE,36.1455,139.3905
-さ行,そ,そびえたつ たかやまふどうの おおいちょう,日高市（高山不動尊）,FALSE,35.9189,139.2154
-た行,た,たいいくさい ちちぶおんどで もりあがる,秩父市（秩父音頭発祥）,FALSE,36.0691,139.0965
-た行,ち,ちょうみんが かぶきやくしゃの おがのまち,小鹿野町（小鹿野歌舞伎）,FALSE,36.0123,139.0069
-た行,つ,つうせんぼり えどまでむすぶ かわのみち,さいたま市緑区（見沼通船堀）,FALSE,35.8703,139.7118
-た行,て,でんとうの ささらししまい うけつぐこ,県内各地（獅子舞）,FALSE,35.971486,138.975722
-た行,と,とおいたび みちすじかたる とねのみず,利根川流域（加須市など）,FALSE,36.1288,139.5982
-な行,な,なつのよる はちがたじょうに さくはなび,寄居町（鉢形城跡）,FALSE,36.1158,139.1979
-な行,に,にらめっこ ぶしゅうだるまの めをいれて,越谷市（越谷だるま）,FALSE,35.8906,139.791
-な行,ぬ,ぬくもりが ふじからあふれる たましきじんじゃ,加須市（玉敷神社）,FALSE,36.1032,139.5701
-な行,ね,ねむりから さめたおにばす きたかわべ,加須市（北川辺・オニバス）,FALSE,36.1772,139.6644
-な行,の,のうみんの くるしみのかたち ちちぶじけん,秩父市（秩父事件）,FALSE,35.9962,139.0832
-は行,は,はんぎにて れきしをきざみ なをのこす,本庄市児玉（塙保己一記念館）,FALSE,36.1912,139.1352
-は行,ひ,ひゃくあなの しぜんのほうこ ひかりごけ,吉見町（吉見百穴・ヒカリゴケ）,FALSE,36.0384,139.4216
-は行,ふ,ふるさとの さくらのめいしょ ごんげんどう,幸手市（権現堂桜堤）,FALSE,36.0886,139.7262
-は行,へ,べーごまは いもののふるさと かわぐちさん,川口市（鋳物・ベーゴマ）,FALSE,35.8016,139.717
-は行,ほ,ほいっする ひびけこころの すたじあむ,さいたま市（埼玉スタジアム2002）,FALSE,35.9031,139.7162
-ま行,ま,まが玉は かことみらいの くびかざり,行田市（さきたま古墳群・勾玉）,FALSE,36.1249,139.4796
-ま行,み,みぬまのた れきしをうつし そらかつぐ,さいたま市など（見沼田んぼ）,FALSE,35.8858,139.6737
-ま行,む,むさしのの おもかげのこる へいりんじ,新座市（平林寺）,FALSE,35.7954,139.554
-ま行,め,めろでぃに ふるさとのせて しもふさかんいち,加須市（下総皖一）,FALSE,36.1344,139.5967
-ま行,も,もりのなか ととろをさがす だいぼうけん,所沢市（狭山丘陵・トトロの森）,FALSE,35.7675,139.4147
-や行,や,やぶさめで やをいるこらの むしゃすがた,毛呂山町（出雲伊波比神社など）,FALSE,35.9431,139.3138
-や行,ゆ,ゆめのもり えがおあふれる みゅーずぱーく,秩父市・小鹿野町（秩父ミューズパーク）,FALSE,35.9863,139.0602
-や行,よ,よめにいく むすめにおやから きりたんす,春日部市（桐たんす）,FALSE,35.9806,139.7523
-ら行,ら,らかんさま どこかにている ともだちに,川越市（喜多院・五百羅漢）,FALSE,35.9184,139.4891
-ら行,り,りんぎょうに いのちささげた ほんだせいろく,久喜市（本多静六）,FALSE,36.0664,139.6677
-ら行,る,るーぷきょう かりさかこえて もものさと,秩父市（雁坂トンネル・ループ橋）,FALSE,35.8926,138.834
-ら行,れ,れんめんと さいばらかぐら ひびきあり,久喜市（鷲宮神社・催馬楽神楽）,FALSE,36.097,139.6582
-ら行,ろ,ろーむそう あかつちふきあげ かぜにまう,本庄、櫛引、江南、東松山など,FALSE,36.2372,139.1848
-わ行,わ,わそうのび いまにつたえる ひなにんぎょう,鴻巣市など（ひな人形）,FALSE,36.0594,139.51
-わ行,を,じょいいちごう みらいをひらいた おぎのぎんこ,熊谷市妻沼（荻野吟子記念館）,FALSE,36.2259,139.3734
-わ行,ん,しんぼるは さいたまありーな しんとしん,さいたま市（さいたまスーパーアリーナ）,FALSE,35.8943,139.6308`;
+    const rawCSV = `行,頭文字,読みテキスト,場所・関連地域,緯度,経度
+あ行,あ,あさつゆに ぬれてかがやく こだいはす,行田市（古代蓮の里）,36.126526,139.485125
+あ行,い,いざしゅつじん たいへいめざし なおざねこう,熊谷市（熊谷直実ゆかりの地）,36.1453,139.3855
+あ行,う,うちゅうまで ゆめをとどけた わかたこういち,さいたま市（さいたま市青少年宇宙科学館）,35.8674,139.6738
+あ行,え,えいいちも たべたねぎいり にぼうとう,深谷市（渋沢栄一記念館）,36.2238,139.2628
+あ行,お,おりづるに ねがいをこめて おがわわし,小川町・東秩父村（細川紙）,36.0594,139.2612
+か行,か,かわごえの おとなりひびく ときのかね,川越市（時の鐘）,35.9238,139.4827
+か行,き,きんちゃくだ まっかにそめる ひがんぱな,日高市（巾着田）,35.8814,139.3094
+か行,く,くもよりも たかくとんでけ しらこばと,越谷市（キャンベルタウン野鳥の森）,35.8953,139.7997
+か行,け,けやきのき せみもこかげの なつやすみ,埼玉県全域（県の木）,35.8569,139.6488
+か行,こ,こふんぐん むさしのごうぞく ねむるはか,行田市（さきたま古墳群）,36.1248,139.4795
+さ行,さ,さくらそう かれんにやさしく けんのはな,さいたま市（田島ヶ原）,35.8427,139.6083
+さ行,し,しょかつつつじ あきはもみじの りょうかみさん,小鹿野町・秩父市（両神山）,36.0142,138.8354
+さ行,す,すみきった そらにむかって りゅうのまい,秩父市吉田（龍勢祭り/椋神社）,36.0556,139.0274
+さ行,せ,せいりゅうに いきながらえよ むさしとみよ,熊谷市（ムサシトミヨ保護センター）,36.1455,139.3905
+さ行,そ,そびえたつ たかやまふどうの おおいちょう,日高市（高山不動尊）,35.9189,139.2154
+た行,た,たいいくさい ちちぶおんどで もりあがる,秩父市（秩父音頭発祥）,36.0691,139.0965
+た行,ち,ちょうみんが かぶきやくしゃの おがのまち,小鹿野町（小鹿野歌舞伎）,36.0123,139.0069
+た行,つ,つうせんぼり えどまでむすぶ かわのみち,さいたま市緑区（見沼通船堀）,35.8703,139.7118
+た行,て,でんとうの ささらししまい うけつぐこ,県内各地（獅子舞）,35.971486,138.975722
+た行,と,とおいたび みちすじかたる とねのみず,利根川流域（加須市など）,36.1288,139.5982
+な行,な,なつのよる はちがたじょうに さくはなび,寄居町（鉢形城跡）,36.1158,139.1979
+な行,に,にらめっこ ぶしゅうだるまの めをいれて,越谷市（越谷だるま）,35.8906,139.791
+な行,ぬ,ぬくもりが ふじからあふれる たましきじんじゃ,加須市（玉敷神社）,36.1032,139.5701
+な行,ね,ねむりから さめたおにばす きたかわべ,加須市（北川辺・オニバス）,36.1772,139.6644
+な行,の,のうみんの くるしみのかたち ちちぶじけん,秩父市（秩父事件）,35.9962,139.0832
+は行,は,はんぎにて れきしをきざみ なをのこす,本庄市児玉（塙保己一記念館）,36.1912,139.1352
+は行,ひ,ひゃくあなの しぜんのほうこ ひかりごけ,吉見町（吉見百穴・ヒカリゴケ）,36.0384,139.4216
+は行,ふ,ふるさとの さくらのめいしょ ごんげんどう,幸手市（権現堂桜堤）,36.0886,139.7262
+は行,へ,べーごまは いもののふるさと かわぐちさん,川口市（鋳物・ベーゴマ）,35.8016,139.717
+は行,ほ,ほいっする ひびけこころの すたじあむ,さいたま市（埼玉スタジアム2002）,35.9031,139.7162
+ま行,ま,まが玉は かことみらいの くびかざり,行田市（さきたま古墳群・勾玉）,36.1249,139.4796
+ま行,み,みぬまのた れきしをうつし そらかつぐ,さいたま市など（見沼田んぼ）,35.8858,139.6737
+ま行,む,むさしのの おもかげのこる へいりんじ,新座市（平林寺）,35.7954,139.554
+ま行,め,めろでぃに ふるさとのせて しもふさかんいち,加須市（下総皖一）,36.1344,139.5967
+ま行,も,もりのなか ととろをさがす だいぼうけん,所沢市（狭山丘陵・トトロの森）,35.7675,139.4147
+や行,や,やぶさめで やをいるこらの むしゃすがた,毛呂山町（出雲伊波比神社など）,35.9431,139.3138
+や行,ゆ,ゆめのもり えがおあふれる みゅーずぱーく,秩父市・小鹿野町（秩父ミューズパーク）,35.9863,139.0602
+や行,よ,よめにいく むすめにおやから きりたんす,春日部市（桐たんす）,35.9806,139.7523
+ら行,ら,らかんさま どこかにている ともだちに,川越市（喜多院・五百羅漢）,35.9184,139.4891
+ら行,り,りんぎょうに いのちささげた ほんだせいろく,久喜市（本多静六）,36.0664,139.6677
+ら行,る,るーぷきょう かりさかこえて もものさと,秩父市（雁坂トンネル・ループ橋）,35.8926,138.834
+ら行,れ,れんめんと さいばらかぐら ひびきあり,久喜市（鷲宮神社・催馬楽神楽）,36.097,139.6582
+ら行,ろ,ろーむそう あかつちふきあげ かぜにまう,本庄、櫛引、江南、東松山など,36.2372,139.1848
+わ行,わ,わそうのび いまにつたえる ひなにんぎょう,鴻巣市など（ひな人形）,36.0594,139.51
+わ行,を,じょいいちごう みらいをひらいた おぎのぎんこ,熊谷市妻沼（荻野吟子記念館）,36.2259,139.3734
+わ行,ん,しんぼるは さいたまありーな しんとしん,さいたま市（さいたまスーパーアリーナ）,35.8943,139.6308`;
 
     const placesData = rawCSV.trim().split('\n').slice(1).map((line, index) => {
       const cols = line.split(',');
@@ -201,8 +215,8 @@
         kana: cols[1],
         text: cols[2],
         place: cols[3],
-        lat: parseFloat(cols[5]),
-        lng: parseFloat(cols[6])
+        lat: parseFloat(cols[4]),
+        lng: parseFloat(cols[5])
       };
     });
 
@@ -213,7 +227,7 @@
       selectedPlace: null,
       db: null,
       isSaving: false,
-      isConfirmingDelete: false // 削除確認状態
+      isConfirmingDelete: false
     };
 
     const searchInput = document.getElementById('search-input');
@@ -245,7 +259,7 @@
     window.gm_authFailure = function () {
       const mapContainer = document.getElementById("map-container");
       if (mapContainer) {
-        mapContainer.innerHTML = `<div class="flex items-center justify-center h-full bg-white p-6 text-center text-gray-500">GCPの許可リストに現在のURLを追加してください。</div>`;
+        mapContainer.innerHTML = `<div class="flex items-center justify-center h-full bg-white p-6 text-center text-gray-500">Google Mapsの認証エラー。GCPの設定を確認してください。</div>`;
       }
     };
 
@@ -293,48 +307,59 @@
       document.head.appendChild(script);
     }
 
+    // --- Firebase初期化とエラー修正 ---
     async function initFirebase() {
-      if (typeof __firebase_config === 'undefined') {
-        state.user = { uid: 'local-user' };
-        renderAll();
-        return;
-      }
       try {
-        const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         state.db = getFirestore(app);
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
+        
+        const initAuth = async () => {
+          // トークンの不一致 (auth/custom-token-mismatch) を回避するための try-catch
+          try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+              await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+              await signInAnonymously(auth);
+            }
+          } catch (tokenError) {
+            // トークンが不一致（外部環境）の場合は匿名ログインにフォールバック
+            await signInAnonymously(auth);
+          }
+        };
+        await initAuth();
+
         onAuthStateChanged(auth, (user) => {
-          state.user = user || { uid: 'local-user' };
-          setupFirestoreListener();
+          state.user = user;
+          if (user) {
+            setupFirestoreListener();
+          }
           renderAll();
         });
       } catch (error) {
-        state.user = { uid: 'local-user' };
+        console.error("Firebase Init Error:", error);
+        state.user = { uid: 'local' };
         renderAll();
       }
     }
 
     let unsubscribeSnapshot = null;
     function setupFirestoreListener() {
-      if (!state.user || state.user.uid === 'local-user' || !state.db) return;
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+      if (!state.user || !state.db) return;
       const visitsRef = collection(state.db, 'artifacts', appId, 'public', 'data', 'family_visits');
+      
       if (unsubscribeSnapshot) unsubscribeSnapshot();
+      
       unsubscribeSnapshot = onSnapshot(visitsRef, (snapshot) => {
         const visits = {};
         snapshot.forEach(doc => { visits[doc.id] = doc.data(); });
         state.visitedPlaces = visits;
         renderAll();
+      }, (error) => {
+        console.error("Firestore Listen Error:", error);
       });
     }
 
-    // 画像の縮小処理 (1MB制限対策)
     const resizeImage = (file) => {
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -350,22 +375,19 @@
             canvas.height = img.height * scaleSize;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7)); // 品質70%で出力
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
           };
         };
       });
     };
 
-    // 保存処理
     async function saveVisit(placeId, comment, photoBase64) {
-      if (!state.db) return;
+      if (!state.db || !state.user) return;
       state.isSaving = true;
       renderModal();
 
       try {
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const placeRef = doc(state.db, 'artifacts', appId, 'public', 'data', 'family_visits', placeId);
-        
         const isNewVisit = !state.visitedPlaces[placeId];
 
         await setDoc(placeRef, {
@@ -373,37 +395,34 @@
           comment: comment || '',
           photo: photoBase64 || state.visitedPlaces[placeId]?.photo || '',
           timestamp: serverTimestamp(),
-          recordedBy: state.user.uid
+          userId: state.user.uid
         }, { merge: true });
 
         if (isNewVisit) triggerAnimation();
-        
+        state.selectedPlace = null;
       } catch (error) {
         console.error("Save error:", error);
       } finally {
         state.isSaving = false;
-        state.selectedPlace = null;
         renderAll();
       }
     }
 
-    // 削除処理（confirmの代わり）
     async function executeDelete(placeId) {
       if (!state.db) return;
       state.isSaving = true;
       renderModal();
 
       try {
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const placeRef = doc(state.db, 'artifacts', appId, 'public', 'data', 'family_visits', placeId);
         await deleteDoc(placeRef);
         state.isConfirmingDelete = false;
         state.selectedPlace = null;
-        renderAll();
       } catch (error) {
         console.error("Delete error:", error);
+      } finally {
         state.isSaving = false;
-        renderModal();
+        renderAll();
       }
     }
 
@@ -459,21 +478,17 @@
         <div class="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 close-modal-bg transition-opacity">
           <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 pb-10 sm:pb-6 shadow-2xl slide-in max-h-[90vh] overflow-y-auto no-scrollbar">
             <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 sm:hidden"></div>
-            
             <div class="flex justify-between items-start mb-4">
               <div class="w-16 h-16 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-3xl font-bold shrink-0 shadow-inner">${place.kana}</div>
               <button class="close-modal-btn p-2 bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 ml-4 shrink-0">${icons.x}</button>
             </div>
-            
             <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-2 leading-relaxed">${place.text}</h3>
             <p class="text-gray-500 text-sm mb-6 flex items-center"><span class="mr-1 w-3 h-3">${icons.mapPin}</span>${place.place}</p>
-
             <div class="space-y-4">
               <div>
                 <label class="block text-xs font-bold text-gray-400 uppercase mb-1">感想・メモ</label>
-                <textarea id="comment-input" rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 outline-none transition-all" placeholder="楽しかったこと、食べたものなど...">${visit.comment || ''}</textarea>
+                <textarea id="comment-input" rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 outline-none transition-all" placeholder="思い出を残しましょう...">${visit.comment || ''}</textarea>
               </div>
-
               <div>
                 <label class="block text-xs font-bold text-gray-400 uppercase mb-1">写真</label>
                 <div class="flex items-center gap-3">
@@ -481,95 +496,31 @@
                     <span class="mr-2">${icons.camera}</span> 写真を選ぶ
                     <input type="file" id="photo-input" accept="image/*" class="hidden">
                   </label>
-                  <span id="photo-status" class="text-xs text-gray-400"></span>
                 </div>
                 <div id="photo-preview-container" class="mt-3 relative ${visit.photo ? '' : 'hidden'}">
                   <img id="photo-preview" src="${visit.photo || ''}" class="w-full h-48 object-cover rounded-xl border border-gray-100">
                   <button id="remove-photo-btn" class="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-black/70 transition-all">${icons.trash}</button>
                 </div>
               </div>
-
               <button id="save-btn" class="w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center transition-all active:scale-[0.98] ${state.isSaving ? 'bg-gray-200 text-gray-400' : 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/30'}" ${state.isSaving ? 'disabled' : ''}>
                 ${state.isSaving ? '<div class="loader mr-2"></div> 保存中...' : (isVisited ? '記録を更新する' : 'この場所に行った！')}
               </button>
-
               ${isVisited ? `
-                <div id="delete-container" class="border-t border-gray-100 pt-3">
+                <div id="delete-container" class="border-t border-gray-100 pt-3 text-center">
                   ${state.isConfirmingDelete ? `
                     <div class="bg-red-50 p-4 rounded-2xl border border-red-100">
-                      <p class="text-red-700 text-xs font-bold mb-3 text-center">本当に訪問記録を消去しますか？</p>
+                      <p class="text-red-700 text-xs font-bold mb-3">本当に訪問記録を消去しますか？</p>
                       <div class="flex gap-2">
-                        <button id="cancel-delete-btn" class="flex-1 py-3 bg-white text-gray-500 rounded-xl text-sm font-bold border border-gray-200 hover:bg-gray-50 transition-all">やめる</button>
-                        <button id="confirm-delete-btn" class="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-red-600 transition-all">消去する</button>
+                        <button id="cancel-delete-btn" class="flex-1 py-3 bg-white text-gray-500 rounded-xl text-sm font-bold border border-gray-200">やめる</button>
+                        <button id="confirm-delete-btn" class="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-bold">消去する</button>
                       </div>
                     </div>
-                  ` : `
-                    <button id="show-delete-confirm-btn" class="w-full py-2 text-red-400 text-sm font-bold flex items-center justify-center opacity-70 hover:opacity-100 transition-all">
-                      <span class="mr-1">${icons.trash}</span> 訪問記録を消去する
-                    </button>
-                  `}
+                  ` : `<button id="show-delete-confirm-btn" class="text-red-400 text-sm font-bold flex items-center justify-center mx-auto opacity-70 hover:opacity-100"><span class="mr-1">${icons.trash}</span> 訪問記録を消去する</button>`}
                 </div>
               ` : ''}
             </div>
           </div>
         </div>`;
-
-      // モーダル内のイベント紐付け
-      const photoInput = document.getElementById('photo-input');
-      if (photoInput) {
-        photoInput.addEventListener('change', async (e) => {
-          const file = e.target.files[0];
-          if (file) {
-            const status = document.getElementById('photo-status');
-            status.textContent = "処理中...";
-            const base64 = await resizeImage(file);
-            document.getElementById('photo-preview').src = base64;
-            document.getElementById('photo-preview-container').classList.remove('hidden');
-            status.textContent = "準備完了";
-          }
-        });
-      }
-
-      const removePhotoBtn = document.getElementById('remove-photo-btn');
-      if (removePhotoBtn) {
-        removePhotoBtn.addEventListener('click', () => {
-          document.getElementById('photo-preview').src = '';
-          document.getElementById('photo-preview-container').classList.add('hidden');
-          document.getElementById('photo-input').value = '';
-          document.getElementById('photo-status').textContent = "";
-        });
-      }
-
-      const saveBtn = document.getElementById('save-btn');
-      if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-          const comment = document.getElementById('comment-input').value;
-          const photo = document.getElementById('photo-preview').src;
-          saveVisit(place.id, comment, photo.startsWith('data:') ? photo : null);
-        });
-      }
-
-      // 削除関連のイベント
-      const showDeleteConfirmBtn = document.getElementById('show-delete-confirm-btn');
-      if (showDeleteConfirmBtn) {
-        showDeleteConfirmBtn.addEventListener('click', () => {
-          state.isConfirmingDelete = true;
-          renderModal();
-        });
-      }
-
-      const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
-      if (cancelDeleteBtn) {
-        cancelDeleteBtn.addEventListener('click', () => {
-          state.isConfirmingDelete = false;
-          renderModal();
-        });
-      }
-
-      const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
-      if (confirmDeleteBtn) {
-        confirmDeleteBtn.addEventListener('click', () => executeDelete(place.id));
-      }
     }
 
     function triggerAnimation() {
@@ -589,6 +540,7 @@
       setTimeout(() => { animationRoot.innerHTML = ''; }, 4000);
     }
 
+    // --- イベント ---
     searchInput.addEventListener('input', (e) => {
       state.searchQuery = e.target.value;
       clearSearchBtn.classList.toggle('hidden', !state.searchQuery);
@@ -602,7 +554,7 @@
       renderAll();
     });
 
-    document.body.addEventListener('click', (e) => {
+    document.body.addEventListener('click', async (e) => {
       const placeBtn = e.target.closest('.place-btn');
       if (placeBtn) {
         state.selectedPlace = placesData.find(p => p.id === placeBtn.dataset.id);
@@ -610,12 +562,52 @@
         renderModal();
         return;
       }
-      const closeBtn = e.target.closest('.close-modal-btn');
-      const closeBg = e.target.closest('.close-modal-bg');
-      if (closeBtn || (closeBg && e.target === closeBg)) {
+      if (e.target.closest('.close-modal-btn') || (e.target.closest('.close-modal-bg') && e.target === e.target.closest('.close-modal-bg'))) {
         state.selectedPlace = null;
+        renderModal();
+        return;
+      }
+      if (e.target.id === 'photo-input') return;
+      if (e.target.closest('#save-btn')) {
+        const comment = document.getElementById('comment-input')?.value;
+        const photo = document.getElementById('photo-preview')?.src;
+        saveVisit(state.selectedPlace.id, comment, photo && photo.startsWith('data:') ? photo : null);
+        return;
+      }
+      if (e.target.closest('#show-delete-confirm-btn')) {
+        state.isConfirmingDelete = true;
+        renderModal();
+        return;
+      }
+      if (e.target.closest('#cancel-delete-btn')) {
         state.isConfirmingDelete = false;
         renderModal();
+        return;
+      }
+      if (e.target.closest('#confirm-delete-btn')) {
+        executeDelete(state.selectedPlace.id);
+        return;
+      }
+      if (e.target.closest('#remove-photo-btn')) {
+        const preview = document.getElementById('photo-preview');
+        if (preview) preview.src = '';
+        document.getElementById('photo-preview-container')?.classList.add('hidden');
+        const input = document.getElementById('photo-input');
+        if (input) input.value = '';
+      }
+    });
+
+    document.body.addEventListener('change', async (e) => {
+      if (e.target.id === 'photo-input') {
+        const file = e.target.files[0];
+        if (file) {
+          const base64 = await resizeImage(file);
+          const preview = document.getElementById('photo-preview');
+          if (preview) {
+            preview.src = base64;
+            document.getElementById('photo-preview-container')?.classList.remove('hidden');
+          }
+        }
       }
     });
 
