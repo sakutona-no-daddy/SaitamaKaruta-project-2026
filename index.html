@@ -160,7 +160,7 @@
 な行,に,にらめっこ ぶしゅうだるまの めをいれて,越谷市（越谷だるま）,FALSE,35.8906,139.791
 な行,ぬ,ぬくもりが ふじからあふれる たましきじんじゃ,加須市（玉敷神社）,FALSE,36.1032,139.5701
 な行,ね,ねむりから さめたおにばす きたかわべ,加須市（北川辺・オニバス）,FALSE,36.1772,139.6644
-な行,の,ぬうみんの くるしみのかたち ちちぶじけん,秩父市（秩父事件）,FALSE,35.9962,139.0832
+な行,の,のうみんの くるしみのかたち ちちぶじけん,秩父市（秩父事件）,FALSE,35.9962,139.0832
 は行,は,はんぎにて れきしをきざみ なをのこす,本庄市児玉（塙保己一記念館）,FALSE,36.1912,139.1352
 は行,ひ,ひゃくあなの しぜんのほうこ ひかりごけ,吉見町（吉見百穴・ヒカリゴケ）,FALSE,36.0384,139.4216
 は行,ふ,ふるさとの さくらのめいしょ ごんげんどう,幸手市（権現堂桜堤）,FALSE,36.0886,139.7262
@@ -243,8 +243,7 @@
             <span class="text-4xl mb-3">⚠️</span>
             <p class="font-bold mb-2 text-gray-700">マップ認証エラー</p>
             <p class="text-xs text-left bg-gray-50 p-3 rounded border border-gray-200">
-              GCPコンソールでAPIキーを許可してください：<br><br>
-              <code class="font-bold text-red-500 bg-red-50 p-1 block">${origin}/*</code>
+              GCPコンソールでAPIキーの許可設定を確認してください。
             </p>
           </div>`;
       }
@@ -338,10 +337,10 @@
       }, (error) => { });
     }
 
-    // --- Gemini 2.0 API 呼び出しロジック (REST API形式) ---
+    // --- Gemini API 呼び出しロジック (エラー回避のため指示をプロンプトに統合) ---
     async function askGemini(type, place) {
       if (GEMINI_API_KEY.includes("YOUR_GEMINI")) {
-        state.geminiResult = "API キーが未設定です。コードを確認してください。";
+        state.geminiResult = "API キーが未設定です。";
         renderModal();
         return;
       }
@@ -350,22 +349,23 @@
       state.geminiResult = null;
       renderModal();
 
-      let prompt = "";
+      const systemRole = "あなたは埼玉県の魅力を楽しく伝える親しみやすいローカルガイドAIです。";
+      let userQuery = "";
       if (type === "trivia") {
-        prompt = `埼玉かるたの読み札「${place.text}」に関連する場所「${place.place}」について、子供でも興味を持てるような面白い豆知識や歴史的背景を3〜4文程度で教えてください。`;
+        userQuery = `埼玉かるたの読み札「${place.text}」に関連する場所「${place.place}」について、子供でも興味を持てる面白い豆知識や歴史を3〜4文程度で教えて。`;
       } else if (type === "diary") {
-        prompt = `「${place.place}」（かるた：${place.text}）に家族で行ってきました！という内容で、SNS（InstagramやXなど）に投稿できるような、絵文字たっぷりの楽しくて短い感想文のドラフトを1つ作成してください。`;
+        userQuery = `「${place.place}」（かるた：${place.text}）に家族で行った感想を、SNS投稿用に絵文字たっぷりで短く1案作成して。`;
       }
 
-      // REST APIでは systemInstruction ではなく system_instruction (スネークケース) を使用します
+      // JSON構造エラーを避けるため、役割指示をテキストの先頭に統合します
+      const fullPrompt = `役割: ${systemRole}\n\n依頼内容: ${userQuery}`;
+
+      // モデル: gemini-2.0-flash / エンドポイント: v1
       const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
         contents: [{ 
-          parts: [{ text: prompt }] 
-        }],
-        system_instruction: { 
-          parts: [{ text: "あなたは埼玉県の魅力を楽しく伝える親しみやすいローカルガイドAIです。" }] 
-        }
+          parts: [{ text: fullPrompt }] 
+        }]
       };
 
       try {
@@ -380,7 +380,7 @@
           throw new Error(result.error?.message || `HTTP error! status: ${response.status}`);
         }
         
-        state.geminiResult = result.candidates?.[0]?.content?.parts?.[0]?.text || "うまく回答を取得できませんでした。";
+        state.geminiResult = result.candidates?.[0]?.content?.parts?.[0]?.text || "回答を取得できませんでした。";
       } catch (e) {
         state.geminiResult = "エラーが発生しました: " + e.message;
         console.error("Gemini API Error:", e);
@@ -457,9 +457,9 @@
         <div class="mt-6 border-t border-gray-100 pt-5">
           <div class="flex flex-col gap-3">
             <button class="ask-gemini-trivia bg-purple-50 text-purple-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95 transition-all">
-              <span class="mr-2">${icons.sparkles}</span> この場所の豆知識を聞く
+              <span class="mr-2">${icons.sparkles}</span> 豆知識を聞く (Gemini 2.0)
             </button>
-            ${isVisited ? `<button class="ask-gemini-diary bg-blue-50 text-blue-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95 transition-all"><span class="mr-2">${icons.sparkles}</span> 訪問の感想文を下書きする</button>` : ''}
+            ${isVisited ? `<button class="ask-gemini-diary bg-blue-50 text-blue-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95 transition-all"><span class="mr-2">${icons.sparkles}</span> 感想文の下書き</button>` : ''}
           </div>
           ${state.isGeminiLoading ? `<div class="mt-4 p-4 bg-gray-50 rounded-xl text-sm text-center animate-pulse border border-gray-100"><span class="text-2xl mb-2 block animate-spin">✨</span>考えています...</div>` : state.geminiResult ? `<div class="mt-4 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl text-sm text-gray-800 leading-relaxed border border-purple-100 shadow-inner"><div class="flex items-center text-purple-800 font-bold mb-2 pb-1 border-b border-purple-200/50"><span class="mr-1">${icons.sparkles}</span> Geminiからのメッセージ</div><p class="whitespace-pre-wrap">${state.geminiResult}</p></div>` : ''}
         </div>`;
@@ -547,4 +547,3 @@
 </body>
 
 </html>
-
