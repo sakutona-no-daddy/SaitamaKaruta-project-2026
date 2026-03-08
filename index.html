@@ -118,10 +118,10 @@
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // ★★★ ステップ1: Google Maps APIキーを設定してください ★★★
-    const GOOGLE_MAPS_API_KEY = "AIzaSyDrAtwrrKDve0v9s96OZ5eeXXiaW7uYqFU"; 
+    const GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY_HERE"; 
 
     // ★★★ ステップ2: Gemini APIキーを設定してください ★★★
-    const GEMINI_API_KEY = "AIzaSyB-3rnYDrJG5D3Tiaj7GGyPJ3F5Mz8fmVc";
+    const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE";
 
     // --- SVGアイコン定義 ---
     const icons = {
@@ -143,7 +143,7 @@
 あ行,お,おりづるに ねがいをこめて おがわわし,小川町・東秩父村（細川紙）,TRUE,36.0594,139.2612
 か行,か,かわごえの おとなりひびく ときのかね,川越市（時の鐘）,TRUE,35.9238,139.4827
 か行,き,きんちゃくだ まっかにそめる ひがんぱな,日高市（巾着田）,FALSE,35.8814,139.3094
-か行,く,くもよりも たかくとんでけ しらこばと,越谷市（キャンベルタウン野鳥の森）,FALSE,35.8953,139.7997
+か行,く,くモよりも たかくとんでけ しらこばと,越谷市（キャンベルタウン野鳥の森）,FALSE,35.8953,139.7997
 か行,け,けやきのき せみもこかげの なつやすみ,埼玉県全域（県の木）,FALSE,35.8569,139.6488
 か行,こ,こふんぐん むさしのごうぞく ねむるはか,行田市（さきたま古墳群）,TRUE,36.1248,139.4795
 さ行,さ,さくらそう かれんにやさしく けんのはな,さいたま市（田島ヶ原）,FALSE,35.8427,139.6083
@@ -338,7 +338,7 @@
       }, (error) => { });
     }
 
-    // --- Gemini 2.0 API 呼び出しロジック (安定版 v1 / gemini-2.0-flash) ---
+    // --- Gemini 2.0 API 呼び出しロジック (REST API形式) ---
     async function askGemini(type, place) {
       if (GEMINI_API_KEY.includes("YOUR_GEMINI")) {
         state.geminiResult = "API キーが未設定です。コードを確認してください。";
@@ -357,13 +357,13 @@
         prompt = `「${place.place}」（かるた：${place.text}）に家族で行ってきました！という内容で、SNS（InstagramやXなど）に投稿できるような、絵文字たっぷりの楽しくて短い感想文のドラフトを1つ作成してください。`;
       }
 
-      // 最新の安定版 v1 エンドポイントと gemini-2.0-flash を使用
+      // REST APIでは systemInstruction ではなく system_instruction (スネークケース) を使用します
       const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
         contents: [{ 
           parts: [{ text: prompt }] 
         }],
-        systemInstruction: { 
+        system_instruction: { 
           parts: [{ text: "あなたは埼玉県の魅力を楽しく伝える親しみやすいローカルガイドAIです。" }] 
         }
       };
@@ -457,7 +457,7 @@
         <div class="mt-6 border-t border-gray-100 pt-5">
           <div class="flex flex-col gap-3">
             <button class="ask-gemini-trivia bg-purple-50 text-purple-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95 transition-all">
-              <span class="mr-2">${icons.sparkles}</span> この場所の豆知識を聞く (Gemini 2.0)
+              <span class="mr-2">${icons.sparkles}</span> この場所の豆知識を聞く
             </button>
             ${isVisited ? `<button class="ask-gemini-diary bg-blue-50 text-blue-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95 transition-all"><span class="mr-2">${icons.sparkles}</span> 訪問の感想文を下書きする</button>` : ''}
           </div>
