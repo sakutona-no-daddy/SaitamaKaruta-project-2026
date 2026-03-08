@@ -109,7 +109,6 @@
     </div>
   </main>
 
-  <!-- モーダル・アニメーション表示用 -->
   <div id="modal-root"></div>
   <div id="animation-root" class="fixed inset-0 pointer-events-none z-[100] overflow-hidden"></div>
 
@@ -118,8 +117,10 @@
     import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // --- APIキー設定 ---
+    // ★★★ ステップ1: Google Maps APIキーを設定してください ★★★
     const GOOGLE_MAPS_API_KEY = "AIzaSyDrAtwrrKDve0v9s96OZ5eeXXiaW7uYqFU"; 
+
+    // ★★★ ステップ2: Gemini APIキーを設定してください ★★★
     const GEMINI_API_KEY = "AIzaSyB-3rnYDrJG5D3Tiaj7GGyPJ3F5Mz8fmVc";
 
     // --- SVGアイコン定義 ---
@@ -165,7 +166,7 @@
 は行,ふ,ふるさとの さくらのめいしょ ごんげんどう,幸手市（権現堂桜堤）,FALSE,36.0886,139.7262
 は行,へ,べーごまは いもののふるさと かわぐちさん,川口市（鋳物・ベーゴマ）,FALSE,35.8016,139.717
 は行,ほ,ほいっする ひびけこころの すたじあむ,さいたま市（埼玉スタジアム2002など）,FALSE,35.9031,139.7162
-ま行,ま,まが玉は かことみらいの くびかざり,行田市（さきたま古墳群・勾玉）,FALSE,36.1249,139.4796
+ま行,ま,まが玉は かこと mらいの くびかざり,行田市（さきたま古墳群・勾玉）,FALSE,36.1249,139.4796
 ま行,み,みぬまのた れきしをうつし そらかつぐ,さいたま市など（見沼田んぼ）,FALSE,35.8858,139.6737
 ま行,む,むさしのの おもかげのこる へいりんじ,新座市（平林寺）,FALSE,35.7954,139.554
 ま行,め,めろでぃに ふるさとのせて しもふさかんいち,加須市（下総皖一）,FALSE,36.1344,139.5967
@@ -220,15 +221,13 @@
     const headerTotalPlacesEl = document.getElementById('header-total-places');
     const headerProgressBar = document.getElementById('header-progress-bar');
 
-    // 初期アイコンの描画
-    const renderIcons = () => {
-      document.getElementById('icon-compass-header').innerHTML = icons.compass;
-      document.getElementById('icon-star-header').innerHTML = icons.star;
-      document.getElementById('icon-search').innerHTML = icons.search;
-      document.getElementById('icon-x-search').innerHTML = icons.x;
-      document.getElementById('icon-mappin-title').innerHTML = icons.mapPin;
-      document.getElementById('icon-list').innerHTML = icons.list;
-    };
+    document.getElementById('icon-compass-header').innerHTML = icons.compass;
+    document.getElementById('icon-star-header').innerHTML = icons.star;
+    document.getElementById('icon-search').innerHTML = icons.search;
+    document.getElementById('icon-x-search').innerHTML = icons.x;
+    document.getElementById('icon-star').innerHTML = icons.star;
+    document.getElementById('icon-mappin-title').innerHTML = icons.mapPin;
+    document.getElementById('icon-list').innerHTML = icons.list;
 
     totalPlacesEl.textContent = placesData.length;
     headerTotalPlacesEl.textContent = placesData.length;
@@ -246,7 +245,8 @@
             <span class="text-4xl mb-3">⚠️</span>
             <p class="font-bold mb-2 text-gray-700">マップ認証エラー</p>
             <p class="text-xs text-left bg-gray-50 p-3 rounded border border-gray-200">
-              GCPの許可リストに以下を追加してください：<br><br>
+              GCPコンソールでAPIキーの「ウェブサイト制限」に現在のURLが追加されていません。<br><br>
+              以下のURLをコピーして、GCPの許可リスト（HTTPリファラー）に追加してください：<br><br>
               <code class="font-bold text-red-500 bg-red-50 p-1 block">${origin}/*</code>
             </p>
           </div>`;
@@ -342,8 +342,14 @@
       }, (error) => { });
     }
 
-    // --- Gemini API 呼び出しロジック (gemini-1.5-flash) ---
+    // --- Gemini 2.0 API 呼び出しロジック ---
     async function askGemini(type, place) {
+      if (GEMINI_API_KEY.includes("YOUR_GEMINI")) {
+        state.geminiResult = "コード内の API キーを設定してください。";
+        renderModal();
+        return;
+      }
+
       state.isGeminiLoading = true;
       state.geminiResult = null;
       renderModal();
@@ -355,11 +361,15 @@
         prompt = `「${place.place}」（かるた：${place.text}）に家族で行ってきました！という内容で、SNS（InstagramやXなど）に投稿できるような、絵文字たっぷりの楽しくて短い感想文のドラフトを1つ作成してください。`;
       }
 
-      // 公開API用のURL (gemini-1.5-flash)
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      // ★★★ 最新の Gemini 2.0 Flash を使用します ★★★
+      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        systemInstruction: { parts: [{ text: "あなたは埼玉県の魅力を楽しく伝える親しみやすいローカルガイドAIです。" }] }
+        contents: [{ 
+          parts: [{ text: prompt }] 
+        }],
+        systemInstruction: { 
+          parts: [{ text: "あなたは埼玉県の魅力を楽しく伝える親しみやすいローカルガイドAIです。" }] 
+        }
       };
 
       try {
@@ -369,10 +379,15 @@
           body: JSON.stringify(payload)
         });
         const result = await response.json();
-        if (result.error) throw new Error(result.error.message);
-        state.geminiResult = result.candidates?.[0]?.content?.parts?.[0]?.text || "結果が取得できませんでした。";
+        
+        if (!response.ok || result.error) {
+          throw new Error(result.error?.message || `HTTP error! status: ${response.status}`);
+        }
+        
+        state.geminiResult = result.candidates?.[0]?.content?.parts?.[0]?.text || "うまく回答を取得できませんでした。";
       } catch (e) {
-        state.geminiResult = "エラー: " + e.message;
+        state.geminiResult = "エラーが発生しました: " + e.message;
+        console.error("Gemini API Error:", e);
       } finally {
         state.isGeminiLoading = false;
         renderModal();
@@ -445,10 +460,10 @@
       const geminiUI = `
         <div class="mt-6 border-t border-gray-100 pt-5">
           <div class="flex flex-col gap-3">
-            <button class="ask-gemini-trivia bg-purple-50 text-purple-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95">
-              <span class="mr-2">${icons.sparkles}</span> この場所の豆知識を聞く
+            <button class="ask-gemini-trivia bg-purple-50 text-purple-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95 transition-all">
+              <span class="mr-2">${icons.sparkles}</span> この場所の豆知識を聞く (Gemini 2.0)
             </button>
-            ${isVisited ? `<button class="ask-gemini-diary bg-blue-50 text-blue-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95"><span class="mr-2">${icons.sparkles}</span> 訪問の感想文を下書きする</button>` : ''}
+            ${isVisited ? `<button class="ask-gemini-diary bg-blue-50 text-blue-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95 transition-all"><span class="mr-2">${icons.sparkles}</span> 訪問の感想文を下書きする</button>` : ''}
           </div>
           ${state.isGeminiLoading ? `<div class="mt-4 p-4 bg-gray-50 rounded-xl text-sm text-center animate-pulse border border-gray-100"><span class="text-2xl mb-2 block animate-spin">✨</span>考えています...</div>` : state.geminiResult ? `<div class="mt-4 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl text-sm text-gray-800 leading-relaxed border border-purple-100 shadow-inner"><div class="flex items-center text-purple-800 font-bold mb-2 pb-1 border-b border-purple-200/50"><span class="mr-1">${icons.sparkles}</span> Geminiからのメッセージ</div><p class="whitespace-pre-wrap">${state.geminiResult}</p></div>` : ''}
         </div>`;
@@ -530,8 +545,6 @@
       }
     });
 
-    // 起動処理
-    renderIcons();
     initFirebase();
     loadGoogleMaps();
   </script>
