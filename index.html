@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="robots" content="noindex, nofollow"> <!-- 検索エンジンに載らないようにする設定 -->
+  <meta name="robots" content="noindex, nofollow">
   <title>家族の埼玉かるた探訪マップ</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -23,7 +24,6 @@
       from { transform: translateY(100%); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
-    /* スクロールバーの非表示設定 */
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
@@ -33,9 +33,10 @@
     }
   </style>
 </head>
+
 <body class="bg-[#F0FDF4] text-gray-800 font-sans pb-24 selection:bg-green-200">
 
-  <!-- ヘッダー -->
+  <!-- ヘッダー：進捗と検索 -->
   <header class="bg-white sticky top-0 z-30 shadow-sm border-b border-green-100">
     <div class="max-w-3xl mx-auto px-4 py-3">
       <div class="flex justify-between items-center mb-3">
@@ -49,21 +50,16 @@
           <span class="text-gray-400 text-xs ml-1">/ <span id="header-total-places">0</span></span>
         </div>
       </div>
-      
+
       <div class="relative mb-3">
         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400" id="icon-search"></div>
-        <input
-          type="text"
-          id="search-input"
-          placeholder="場所や読み札で検索..."
-          class="block w-full pl-10 pr-10 py-2 border border-green-200 rounded-full leading-5 bg-green-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm transition-colors shadow-inner"
-        />
+        <input type="text" id="search-input" placeholder="場所や読み札で検索..."
+          class="block w-full pl-10 pr-10 py-2 border border-green-200 rounded-full leading-5 bg-green-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm transition-colors shadow-inner" />
         <button id="clear-search" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
           <span id="icon-x-search"></span>
         </button>
       </div>
 
-      <!-- ヘッダー用プログレスバー -->
       <div class="w-full bg-gray-100 rounded-full h-1.5 shadow-inner overflow-hidden">
         <div id="header-progress-bar" class="bg-gradient-to-r from-green-400 to-green-500 h-1.5 rounded-full transition-all duration-1000 ease-out" style="width: 0%"></div>
       </div>
@@ -71,7 +67,6 @@
   </header>
 
   <main class="max-w-3xl mx-auto px-4 py-6">
-    
     <!-- 進捗状況パネル -->
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-green-100 mb-6 relative overflow-hidden">
       <div class="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
@@ -90,13 +85,12 @@
       </div>
     </div>
 
-    <!-- 埼玉マイマップエリア (Google Maps API版) -->
+    <!-- 地図エリア -->
     <div class="bg-white rounded-2xl p-4 shadow-sm border border-green-100 mb-8">
       <h2 class="text-sm font-bold text-gray-500 mb-2 flex items-center justify-center">
         <span class="mr-1" id="icon-mappin-title"></span> マップから探す
       </h2>
       <div class="relative w-full h-[50vh] sm:h-[60vh] rounded-xl overflow-hidden border-2 border-green-200 shadow-inner">
-        <!-- Google Mapsがここに描画されます -->
         <div id="map-container" class="absolute inset-0 bg-gray-100"></div>
       </div>
       <div class="flex justify-center items-center mt-3 text-xs text-gray-500 space-x-4">
@@ -105,31 +99,30 @@
       </div>
     </div>
 
-    <!-- リストエリア -->
+    <!-- 読み札リスト -->
     <div class="space-y-4">
       <h2 class="text-lg font-bold text-gray-700 flex items-center border-b-2 border-green-200 pb-2">
         <span class="mr-2 text-green-600" id="icon-list"></span>
         読み札リスト (<span id="list-count">0</span>件)
       </h2>
-      
-      <div id="list-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <!-- リストアイテムがここに生成されます -->
-      </div>
+      <div id="list-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
     </div>
   </main>
 
-  <!-- モーダル・アニメーション領域 -->
+  <!-- モーダル・アニメーション表示用 -->
   <div id="modal-root"></div>
   <div id="animation-root" class="fixed inset-0 pointer-events-none z-[100] overflow-hidden"></div>
 
-  <!-- Firebase & アプリケーションロジック -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // ★★★ Google Maps APIキーの設定 ★★★
-    const GOOGLE_MAPS_API_KEY = "AIzaSyDrAtwrrKDve0v9s96OZ5eeXXiaW7uYqFU"; // ※実際に使う際は、以前のAPIキーを設定してください
+    // ★★★ ステップ1: Google Maps APIキーをここに入力してください ★★★
+    const GOOGLE_MAPS_API_KEY = "AIzaSyDrAtwrrKDve0v9s96OZ5eeXXiaW7uYqFU"; 
+
+    // ★★★ ステップ2: Gemini APIキーをここに入力してください ★★★
+    const GEMINI_API_KEY = "AIzaSyB-3rnYDrJG5D3Tiaj7GGyPJ3F5Mz8fmVc";
 
     // --- SVGアイコン定義 ---
     const icons = {
@@ -143,56 +136,54 @@
       sparkles: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>`
     };
 
-    // --- データ定義 ---
     const rawCSV = `行,頭文字,読みテキスト,場所・関連地域,マップ登録,緯度,経度
 あ行,あ,あさつゆに ぬれてかがやく こだいはす,行田市（古代蓮の里）,FALSE,36.126526,139.485125
-あ行,い,いざしゅつじん たいへいめざし なおざねこう,熊谷市（熊谷直実ゆかりの地）,FALSE,36.145300,139.385500
-あ行,う,うちゅうまで ゆめをとどけた わかたこういち,さいたま市（さいたま市青少年宇宙科学館）,FALSE,35.867400,139.673800
-あ行,え,えいいちも たべたねぎいり にぼうとう,深谷市（渋沢栄一記念館）,FALSE,36.223800,139.262800
-あ行,お,おりづるに ねがいをこめて おがわわし,小川町・東秩父村（細川紙）,TRUE,36.059400,139.261200
-か行,か,かわごえの おとなりひびく ときのかね,川越市（時の鐘）,TRUE,35.923800,139.482700
-か行,き,きんちゃくだ まっかにそめる ひがんぱな,日高市（巾着田）,FALSE,35.881400,139.309400
-か行,く,くもよりも たかくとんでけ しらこばと,越谷市（キャンベルタウン野鳥の森）,FALSE,35.895300,139.799700
-か行,け,けやきのき せみもこかげの なつやすみ,埼玉県全域（県の木）,FALSE,35.856900,139.648800
-か行,こ,こふんぐん むさしのごうぞく ねむるはか,行田市（さきたま古墳群）,TRUE,36.124800,139.479500
-さ行,さ,さくらそう かれんにやさしく けんのはな,さいたま市（田島ヶ原）,FALSE,35.842700,139.608300
-さ行,し,しょかつつじ あきはもみじの りょうかみさん,小鹿野町・秩父市（両神山）,FALSE,36.014200,138.835400
-さ行,す,すみきった そらにむかって りゅうのまい,秩父市吉田（龍勢祭り/椋神社）,FALSE,36.055600,139.027400
-さ行,せ,せいりゅうに いきながらえよ むさしとみよ,熊谷市（ムサシトミヨ保護センター）,FALSE,36.145500,139.390500
-さ行,そ,そびえたつ たかやまふどうの おおいちょう,日高市（高山不動尊）,FALSE,35.918900,139.215400
-た行,た,たいいくさい ちちぶおんどで もりあがる,秩父市（秩父音頭発祥）,FALSE,36.069100,139.096500
-た行,ち,ちょうみんが かぶきやくしゃの おがのまち,小鹿野町（小鹿野歌舞伎）,FALSE,36.012300,139.006900
-た行,つ,つうせんぼり えどまでむすぶ かわのみち,さいたま市緑区（見沼通船堀）,FALSE,35.870300,139.711800
+あ行,い,いざしゅつじん たいへいめざし なおざねこう,熊谷市（熊谷直実ゆかりの地）,FALSE,36.1453,139.3855
+あ行,う,うちゅうまで ゆめをとどけた わかたこういち,さいたま市（さいたま市青少年宇宙科学館）,FALSE,35.8674,139.6738
+あ行,え,えいいちも たべたねぎいり にぼうとう,深谷市（渋沢栄一記念館）,FALSE,36.2238,139.2628
+あ行,お,おりづるに ねがいをこめて おがわわし,小川町・東秩父村（細川紙）,TRUE,36.0594,139.2612
+か行,か,かわごえの おとなりひびく ときのかね,川越市（時の鐘）,TRUE,35.9238,139.4827
+か行,き,きんちゃくだ まっかにそめる ひがんぱな,日高市（巾着田）,FALSE,35.8814,139.3094
+か行,く,くもよりも たかくとんでけ しらこばと,越谷市（キャンベルタウン野鳥の森）,FALSE,35.8953,139.7997
+か行,け,けやきのき せみもこかげの なつやすみ,埼玉県全域（県の木）,FALSE,35.8569,139.6488
+か行,こ,こふんぐん むさしのごうぞく ねむるはか,行田市（さきたま古墳群）,TRUE,36.1248,139.4795
+さ行,さ,さくらそう かれんにやさしく けんのはな,さいたま市（田島ヶ原）,FALSE,35.8427,139.6083
+さ行,し,しょかつつつじ あきはもみじの りょうかみさん,小鹿野町・秩父市（両神山）,FALSE,36.0142,138.8354
+さ行,す,すみきった そらにむかって りゅうのまい,秩父市吉田（龍勢祭り/椋神社）,FALSE,36.0556,139.0274
+さ行,せ,せいりゅうに いきながらえよ むさしとみよ,熊谷市（ムサシトミヨ保護センター）,FALSE,36.1455,139.3905
+さ行,そ,そびえたつ たかやまふどうの おおいちょう,日高市（高山不動尊）,FALSE,35.9189,139.2154
+た行,た,たいいくさい ちちぶおんどで もりあがる,秩父市（秩父音頭発祥）,FALSE,36.0691,139.0965
+た行,ち,ちょうみんが かぶきやくしゃの おがのまち,小鹿野町（小鹿野歌舞伎）,FALSE,36.0123,139.0069
+た行,つ,つうせんぼり えどまでむすぶ かわのみち,さいたま市緑区（見沼通船堀）,FALSE,35.8703,139.7118
 た行,て,でんとうの ささらししまい うけつぐこ,県内各地（熊野神社など・獅子舞）,FALSE,35.971486,138.975722
-た行,と,とおいたび みちすじかたる とねのみず,利根川流域（加須市など）,FALSE,36.128800,139.598200
-な行,な,なつのよる はちがたじょうに さくはなび,寄居町（鉢形城跡）,FALSE,36.115800,139.197900
-な行,に,にらめっこ ぶしゅうだるまの めをいれて,越谷市（越谷だるま）,FALSE,35.890600,139.791000
-な行,ぬ,ぬくもりが ふじからあふれる たましきじんじゃ,加須市（玉敷神社）,FALSE,36.103200,139.570100
-な行,ね,ねむりから さめたおにばす きたかわべ,加須市（北川辺・オニバス）,FALSE,36.177200,139.664400
-な行,の,のうみんの くるしみのかたち ちちぶじけん,秩父市（秩父事件）,FALSE,35.996200,139.083200
-は行,は,はんぎにて れきしをきざみ なをのこす,本庄市児玉（塙保己一記念館）,FALSE,36.191200,139.135200
-は行,ひ,ひゃくあなの しぜんのほうこ ひかりごけ,吉見町（吉見百穴・ヒカリゴケ）,FALSE,36.038400,139.421600
-は行,ふ,ふるさとの さくらのめいしょ ごんげんどう,幸手市（権現堂桜堤）,FALSE,36.088600,139.726200
-は行,へ,べーごまは いもののふるさと かわぐちさん,川口市（鋳物・ベーゴマ）,FALSE,35.801600,139.717000
-は行,ほ,ほいっする ひびけこころの すたじあむ,さいたま市（埼玉スタジアム2002など）,FALSE,35.903100,139.716200
-ま行,ま,まが玉は かことみらいの くびかざり,行田市（さきたま古墳群・勾玉）,FALSE,36.124900,139.479600
-ま行,み,みぬまのた れきしをうつし そらかつぐ,さいたま市など（見沼田んぼ）,FALSE,35.885800,139.673700
-ま行,む,むさしのの おもかげのこる へいりんじ,新座市（平林寺）,FALSE,35.795400,139.554000
-ま行,め,めろでぃに ふるさとのせて しもふさかんいち,加須市（下総皖一）,FALSE,36.134400,139.596700
-ま行,も,もりのなか ととろをさがす だいぼうけん,所沢市（狭山丘陵・トトロの森）,FALSE,35.767500,139.414700
-や行,や,やぶさめで やをいるこらの むしゃすがた,毛呂山町（出雲伊波比神社など）,FALSE,35.943100,139.313800
-や行,ゆ,ゆめのもり えがおあふれる みゅーずぱーく,秩父市・小鹿野町（秩父ミューズパーク）,FALSE,35.986300,139.060200
-や行,よ,よめにいく むすめにおやから きりたんす,春日部市（桐たんす）,FALSE,35.980600,139.752300
-ら行,ら,らかんさま どこかにている ともだちに,川越市（喜多院・五百羅漢）,FALSE,35.918400,139.489100
-ら行,り,りんぎょうに いのちささげた ほんだせいろく,久喜市（本多静六）,FALSE,36.066400,139.667700
-ら行,る,るーぷきょう かりさかこえて もものさと,秩父市（雁坂トンネル・ループ橋）,FALSE,35.892600,138.834000
-ら行,れ,れんめんと さいばらかぐら ひびきあり,久喜市（鷲宮神社・催馬楽神楽）,FALSE,36.097000,139.658200
-ら行,ろ,ろーむそう あかつちふきあげ かぜにまう,本庄、櫛引、江南、東松山、入間など,FALSE,36.237200,139.184800
-わ行,わ,わそうのび いまにつたえる ひなにんぎょう,鴻巣市など（ひな人形）,FALSE,36.059400,139.510000
-わ行,を,じょいいちごう みらいをひらいた おぎのぎんこ,熊谷市妻沼（荻野吟子記念館）,FALSE,36.225900,139.373400
-わ行,ん,しんぼるは さいたまありーな しんとしん,さいたま市（さいたまスーパーアリーナ）,FALSE,35.894300,139.630800`;
+た行,と,とおいたび みちすじかたる とねのみず,利根川流域（加須市など）,FALSE,36.1288,139.5982
+な行,な,なつのよる はちがたじょうに さくはなび,寄居町（鉢形城跡）,FALSE,36.1158,139.1979
+な行,に,にらめっこ ぶしゅうだるまの めをいれて,越谷市（越谷だるま）,FALSE,35.8906,139.791
+な行,ぬ,ぬくもりが ふじからあふれる たましきじんじゃ,加須市（玉敷神社）,FALSE,36.1032,139.5701
+な行,ね,ねむりから さめたおにばす きたかわべ,加須市（北川辺・オニバス）,FALSE,36.1772,139.6644
+な行,の,のうみんの くるしみのかたち ちちぶじけん,秩父市（秩父事件）,FALSE,35.9962,139.0832
+は行,は,はんぎにて れきしをきざみ なをのこす,本庄市児玉（塙保己一記念館）,FALSE,36.1912,139.1352
+は行,ひ,ひゃくあなの しぜんのほうこ ひかりごけ,吉見町（吉見百穴・ヒカリゴケ）,FALSE,36.0384,139.4216
+は行,ふ,ふるさとの さくらのめいしょ ごんげんどう,幸手市（権現堂桜堤）,FALSE,36.0886,139.7262
+は行,へ,べーごまは いもののふるさと かわぐちさん,川口市（鋳物・ベーゴマ）,FALSE,35.8016,139.717
+は行,ほ,ほいっする ひびけこころの すたじあむ,さいたま市（埼玉スタジアム2002など）,FALSE,35.9031,139.7162
+ま行,ま,まが玉は かことみらいの くびかざり,行田市（さきたま古墳群・勾玉）,FALSE,36.1249,139.4796
+ま行,み,みぬまのた れきしをうつし そらかつぐ,さいたま市など（見沼田んぼ）,FALSE,35.8858,139.6737
+ま行,む,むさしのの おもかげのこる へいりんじ,新座市（平林寺）,FALSE,35.7954,139.554
+ま行,め,めろでぃに ふるさとのせて しもふさかんいち,加須市（下総皖一）,FALSE,36.1344,139.5967
+ま行,も,もりのなか ととろをさがす だいぼうけん,所沢市（狭山丘陵・トトロの森）,FALSE,35.7675,139.4147
+や行,や,やぶさめで やをいるこらの むしゃすがた,毛呂山町（出雲伊波比神社など）,FALSE,35.9431,139.3138
+や行,ゆ,ゆめのもり えがおあふれる みゅーずぱーく,秩父市・小鹿野町（秩父ミューズパーク）,FALSE,35.9863,139.0602
+や行,よ,よめにいく むすめにおやから きりたんす,春日部市（桐たんす）,FALSE,35.9806,139.7523
+ら行,ら,らかんさま どこかにている ともだちに,川越市（喜多院・五百羅漢）,FALSE,35.9184,139.4891
+ら行,り,りんぎょうに いのちささげた ほんだせいろく,久喜市（本多静六）,FALSE,36.0664,139.6677
+ら行,る,るーぷきょう かりさかこえて もものさと,秩父市（雁坂トンネル・ループ橋）,FALSE,35.8926,138.834
+ら行,れ,れんめんと さいばらかぐら ひびきあり,久喜市（鷲宮神社・催馬楽神楽）,FALSE,36.097,139.6582
+ら行,ろ,ろーむそう あかつちふきあげ かぜにまう,本庄、櫛引、江南、東松山など,FALSE,36.2372,139.1848
+わ行,わ,わそうのび いまにつたえる ひなにんぎょう,鴻巣市など（ひな人形）,FALSE,36.0594,139.51
+わ行,を,じょいいちごう みらいをひらいた おぎのぎんこ,熊谷市妻沼（荻野吟子記念館）,FALSE,36.2259,139.3734
+わ行,ん,しんぼるは さいたまありーな しんとしん,さいたま市（さいたまスーパーアリーナ）,FALSE,35.8943,139.6308`;
 
-    // CSV文字列を配列に変換し、緯度・経度を取得
     const placesData = rawCSV.trim().split('\n').slice(1).map((line, index) => {
       const cols = line.split(',');
       return {
@@ -207,7 +198,6 @@
       };
     });
 
-    // --- アプリケーションの状態 ---
     const state = {
       user: null,
       visitedPlaces: {},
@@ -215,10 +205,10 @@
       selectedPlace: null,
       db: null,
       geminiResult: null, // AIの回答結果
-      isGeminiLoading: false // AI通信中のフラグ
+      isGeminiLoading: false // AI通信中フラグ
     };
 
-    // --- DOM要素取得 ---
+    // DOM要素の取得
     const searchInput = document.getElementById('search-input');
     const clearSearchBtn = document.getElementById('clear-search');
     const totalVisitedEl = document.getElementById('total-visited');
@@ -228,13 +218,10 @@
     const listCountEl = document.getElementById('list-count');
     const modalRoot = document.getElementById('modal-root');
     const animationRoot = document.getElementById('animation-root');
-    
-    // ヘッダー用の要素取得
     const headerTotalVisitedEl = document.getElementById('header-total-visited');
     const headerTotalPlacesEl = document.getElementById('header-total-places');
     const headerProgressBar = document.getElementById('header-progress-bar');
 
-    // --- 初期アイコン描画 ---
     document.getElementById('icon-compass-header').innerHTML = icons.compass;
     document.getElementById('icon-star-header').innerHTML = icons.star;
     document.getElementById('icon-search').innerHTML = icons.search;
@@ -246,94 +233,67 @@
     totalPlacesEl.textContent = placesData.length;
     headerTotalPlacesEl.textContent = placesData.length;
 
-
-    // ★★★ Google Maps APIの描画・制御ロジック ★★★
     let map = null;
-    const markers = {}; // idをキーにしてマーカーを保存
+    const markers = {};
 
-    // Google Maps APIエラーハンドリング（RefererNotAllowedMapErrorなどの対応）
-    window.gm_authFailure = function() {
+    // Google Maps認証エラー対応
+    window.gm_authFailure = function () {
       const mapContainer = document.getElementById("map-container");
-      if(mapContainer) {
+      if (mapContainer) {
         const origin = window.location.origin;
         mapContainer.innerHTML = `
           <div class="flex flex-col items-center justify-center h-full bg-white p-6 text-center text-gray-500 overflow-y-auto">
             <span class="text-4xl mb-3">⚠️</span>
-            <p class="font-bold mb-2 text-gray-700">マップの認証エラー</p>
+            <p class="font-bold mb-2 text-gray-700">マップ認証エラー</p>
             <p class="text-xs text-left bg-gray-50 p-3 rounded border border-gray-200">
-              GCPコンソールでAPIキーの「ウェブサイトの制限」に現在のURLが追加されていません。<br><br>
+              GCPコンソールでAPIキーの「ウェブサイト制限」に現在のURLが追加されていません。<br><br>
               以下のURLをコピーして、GCPの許可リスト（HTTPリファラー）に追加してください：<br><br>
-              <code class="font-bold text-red-500 break-all select-all block bg-red-50 p-2 rounded mt-1 mb-2">${origin}/*</code>
-              <br>
-              ※設定が反映されるまで数分かかる場合があります。設定後、ページをリロードしてください。
+              <code class="font-bold text-red-500 bg-red-50 p-1 block">${origin}/*</code>
             </p>
-          </div>
-        `;
+          </div>`;
       }
     };
 
-    window.initMap = function() {
-      const mapContainer = document.getElementById("map-container");
-      
-      map = new google.maps.Map(mapContainer, {
+    window.initMap = function () {
+      map = new google.maps.Map(document.getElementById("map-container"), {
         center: { lat: 36.02, lng: 139.4 },
         zoom: 9,
         mapTypeControl: false,
         streetViewControl: false,
-        styles: [
-          { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }
-        ]
+        styles: [{ featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }]
       });
 
       placesData.forEach(place => {
         if (!place.lat || !place.lng) return;
-        
         const marker = new google.maps.Marker({
           position: { lat: place.lat, lng: place.lng },
           map: map,
           title: place.text,
         });
-
         marker.addListener('click', () => {
           state.selectedPlace = place;
-          state.geminiResult = null; // AI結果のリセット
+          state.geminiResult = null;
           state.isGeminiLoading = false;
           renderModal();
         });
-
         markers[place.id] = marker;
       });
-
       updateMarkers();
     };
 
     function updateMarkers() {
       if (!map) return;
-      
       placesData.forEach(place => {
         const marker = markers[place.id];
         if (marker) {
           const isVisited = !!state.visitedPlaces[place.id];
-          const iconUrl = isVisited 
-            ? 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
-            : 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
-          marker.setIcon(iconUrl);
+          marker.setIcon(isVisited ? 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/green-dot.png');
         }
       });
     }
 
     function loadGoogleMaps() {
-      if (GOOGLE_MAPS_API_KEY === "AIzaSyDrAtwrrKDve0v9s96OZ5eeXXiaW7uYqFU") {
-        document.getElementById("map-container").innerHTML = `
-          <div class="flex flex-col items-center justify-center h-full bg-white p-6 text-center text-gray-500">
-            <span class="text-4xl mb-3">🗺️</span>
-            <p class="font-bold mb-1 text-gray-700">Google Maps APIキーが未設定です</p>
-            <p class="text-xs">コードの153行目付近にある <code>GOOGLE_MAPS_API_KEY</code> に、取得したAPIキーを設定してください。</p>
-          </div>
-        `;
-        return;
-      }
-      
+      if (GOOGLE_MAPS_API_KEY.includes("YOUR_GOOGLE")) return;
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap`;
       script.async = true;
@@ -341,161 +301,116 @@
       document.head.appendChild(script);
     }
 
-
-    // --- Firebase 初期化処理 ---
+    // --- Firebase初期化 ---
     async function initFirebase() {
       if (typeof __firebase_config === 'undefined') {
-        console.log("Firebase is not configured. Running in local mode.");
         state.user = { uid: 'local-user' };
         renderAll();
         return;
       }
-
       try {
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         state.db = getFirestore(app);
-
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
           await signInAnonymously(auth);
         }
-
         onAuthStateChanged(auth, (user) => {
           state.user = user || { uid: 'local-user' };
           setupFirestoreListener();
           renderAll();
         });
       } catch (error) {
-        console.error("Firebase init error:", error);
         state.user = { uid: 'local-user' };
         renderAll();
       }
     }
 
-    // --- Firestore リスナー ---
     let unsubscribeSnapshot = null;
     function setupFirestoreListener() {
       if (!state.user || state.user.uid === 'local-user' || !state.db) return;
-      
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
       const visitsRef = collection(state.db, 'artifacts', appId, 'public', 'data', 'family_visits');
-      
       if (unsubscribeSnapshot) unsubscribeSnapshot();
-      
       unsubscribeSnapshot = onSnapshot(visitsRef, (snapshot) => {
         const visits = {};
-        snapshot.forEach(doc => {
-          visits[doc.id] = doc.data();
-        });
+        snapshot.forEach(doc => { visits[doc.id] = doc.data(); });
         state.visitedPlaces = visits;
-        renderAll(); 
-      }, (error) => {
-        console.error("Fetch error:", error);
-      });
+        renderAll();
+      }, (error) => { });
     }
 
-    // --- Gemini API 呼び出しロジック ---
+    // --- Gemini API 呼び出し (ご自身のキーを使用する修正版) ---
     async function askGemini(type, place) {
-      // 処理中状態にする
+      if (GEMINI_API_KEY.includes("YOUR_GEMINI")) {
+        state.geminiResult = "コード内の API キーを設定してください。";
+        renderModal();
+        return;
+      }
+
       state.isGeminiLoading = true;
       state.geminiResult = null;
       renderModal();
 
       let prompt = "";
       if (type === "trivia") {
-        prompt = `埼玉かるたの読み札「${place.text}」に関連する場所「${place.place}」について、子供でも興味を持てるような面白い豆知識や歴史的背景を3〜4文程度で教えてください。`;
+        prompt = `埼玉かるたの読み札「${place.text}」に関連する場所「${place.place}」について、子供でも興味を持てる面白い豆知識や歴史を3〜4文程度で教えて。`;
       } else if (type === "diary") {
-        prompt = `「${place.place}」（かるた：${place.text}）に家族で行ってきました！という内容で、SNS（InstagramやXなど）に投稿できるような、絵文字たっぷりの楽しくて短い感想文のドラフトを1つ作成してください。`;
+        prompt = `「${place.place}」（かるた：${place.text}）に家族で行った感想を、SNS投稿用に絵文字たっぷりで短く1案作成して。`;
       }
 
-      // Gemini APIのキー（環境から自動的に提供されます）
-      const geminiApiKey = "AIzaSyB-3rnYDrJG5D3Tiaj7GGyPJ3F5Mz8fmVc"; 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiApiKey}`;
+      // 公開API用のモデル名は gemini-1.5-flash です
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
         contents: [{ parts: [{ text: prompt }] }],
-        systemInstruction: { parts: [{ text: "あなたは埼玉県の魅力を楽しく伝える親しみやすいローカルガイドAIです。" }] }
+        systemInstruction: { parts: [{ text: "あなたは埼玉県の魅力を伝える親しみやすいローカルガイドAIです。" }] }
       };
 
-      let retries = 5;
-      let delay = 1000;
-      let resultText = "通信エラーが発生しました。";
-
-      while (retries > 0) {
-        try {
-          const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          if (!response.ok) throw new Error("API Error");
-          const result = await response.json();
-          resultText = result.candidates?.[0]?.content?.parts?.[0]?.text || "結果がうまく取得できませんでした。";
-          break;
-        } catch (e) {
-          retries--;
-          if (retries === 0) break;
-          await new Promise(r => setTimeout(r, delay));
-          delay *= 2;
-        }
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (result.error) throw new Error(result.error.message);
+        state.geminiResult = result.candidates?.[0]?.content?.parts?.[0]?.text || "うまく回答を取得できませんでした。";
+      } catch (e) {
+        state.geminiResult = "エラーが発生しました: " + e.message;
+      } finally {
+        state.isGeminiLoading = false;
+        renderModal();
       }
-
-      // 結果を保存して再描画
-      state.geminiResult = resultText;
-      state.isGeminiLoading = false;
-      renderModal();
     }
 
-
-    // --- 状態更新とFirestore書き込み ---
     async function toggleVisit(placeId) {
       const isCurrentlyVisited = !!state.visitedPlaces[placeId];
-      
       if (isCurrentlyVisited) {
         delete state.visitedPlaces[placeId];
       } else {
-        state.visitedPlaces[placeId] = { visited: true, timestamp: new Date(), recordedBy: state.user?.uid || 'local' };
+        state.visitedPlaces[placeId] = { visited: true, timestamp: new Date() };
         triggerAnimation();
-        
-        // モーダルを自動で閉じる処理は、Geminiの結果を見たいユーザーのために無効化するか、少し長く待つ。
-        // 今回は、AIの機能を使うかもしれないので自動クローズは無効化します。
       }
       renderAll();
-
       if (state.user && state.user.uid !== 'local-user' && state.db) {
-        try {
-          const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-          const placeRef = doc(state.db, 'artifacts', appId, 'public', 'data', 'family_visits', placeId);
-
-          if (isCurrentlyVisited) {
-            await deleteDoc(placeRef);
-          } else {
-            await setDoc(placeRef, { 
-              visited: true, 
-              timestamp: serverTimestamp(),
-              recordedBy: state.user.uid
-            });
-          }
-        } catch (error) {
-          console.error("Update error:", error);
-        }
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const placeRef = doc(state.db, 'artifacts', appId, 'public', 'data', 'family_visits', placeId);
+        if (isCurrentlyVisited) { await deleteDoc(placeRef); }
+        else { await setDoc(placeRef, { visited: true, timestamp: serverTimestamp(), recordedBy: state.user.uid }); }
       }
     }
 
-    // --- 描画ロジック ---
     function renderAll() {
       const filteredPlaces = getFilteredPlaces();
-      
       const totalVisited = Object.keys(state.visitedPlaces).length;
       totalVisitedEl.textContent = totalVisited;
       headerTotalVisitedEl.textContent = totalVisited;
-      
       const progressPercentage = Math.round((totalVisited / placesData.length) * 100) || 0;
       progressBar.style.width = `${progressPercentage}%`;
       headerProgressBar.style.width = `${progressPercentage}%`;
-
       renderList(filteredPlaces);
       renderModal();
       updateMarkers();
@@ -504,122 +419,62 @@
     function getFilteredPlaces() {
       if (!state.searchQuery) return placesData;
       const q = state.searchQuery.toLowerCase();
-      return placesData.filter(p => 
-        p.kana.includes(q) || p.text.includes(q) || p.place.includes(q)
-      );
+      return placesData.filter(p => p.kana.includes(q) || p.text.includes(q) || p.place.includes(q));
     }
 
     function renderList(filteredPlaces) {
       listCountEl.textContent = filteredPlaces.length;
-      
       if (filteredPlaces.length === 0) {
         listContainer.innerHTML = `<p class="text-gray-500 text-center py-8 col-span-full">見つかりませんでした</p>`;
         return;
       }
-
       listContainer.innerHTML = filteredPlaces.map(place => {
         const isVisited = !!state.visitedPlaces[place.id];
         const containerClass = isVisited ? 'border-orange-300 bg-orange-50 shadow-sm' : 'border-white bg-white shadow hover:border-green-200';
         const iconClass = isVisited ? 'bg-orange-500 text-white' : 'bg-green-100 text-green-700';
-        
         return `
           <div data-id="${place.id}" class="place-btn p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center active:scale-[0.98] ${containerClass}">
-            <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl mr-4 shrink-0 shadow-sm ${iconClass}">
-              ${place.kana}
-            </div>
+            <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl mr-4 shrink-0 shadow-sm ${iconClass}">${place.kana}</div>
             <div class="flex-1 min-w-0 pr-2">
               <p class="font-bold text-gray-800 text-sm mb-1">${place.text}</p>
-              <p class="text-xs text-gray-500 truncate flex items-center">
-                <span class="mr-1 w-3 h-3">${icons.mapPin}</span>
-                ${place.place}
-              </p>
+              <p class="text-xs text-gray-500 truncate flex items-center"><span class="mr-1 w-3 h-3">${icons.mapPin}</span>${place.place}</p>
             </div>
             ${isVisited ? `<div class="shrink-0 text-orange-500 ml-1 w-6 h-6">${icons.checkCircle}</div>` : ''}
-          </div>
-        `;
+          </div>`;
       }).join('');
     }
 
     function renderModal() {
-      if (!state.selectedPlace) {
-        modalRoot.innerHTML = '';
-        return;
-      }
-
+      if (!state.selectedPlace) { modalRoot.innerHTML = ''; return; }
       const place = state.selectedPlace;
       const isVisited = !!state.visitedPlaces[place.id];
-      const btnClass = isVisited 
-        ? 'bg-white text-orange-600 border-2 border-orange-500 shadow-sm' 
-        : 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/30 hover:from-orange-500 hover:to-orange-600';
-
-      // Gemini機能のUI部分を生成
+      const btnClass = isVisited ? 'bg-white text-orange-600 border-2 border-orange-500 shadow-sm' : 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/30';
+      
       const geminiUI = `
         <div class="mt-6 border-t border-gray-100 pt-5">
           <div class="flex flex-col gap-3">
-            <button class="ask-gemini-trivia bg-gradient-to-r from-purple-50 to-purple-100 text-purple-700 hover:from-purple-100 hover:to-purple-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center active:scale-95">
-              <span class="text-purple-500 mr-2">${icons.sparkles}</span> この場所の豆知識を聞く
+            <button class="ask-gemini-trivia bg-purple-50 text-purple-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95">
+              <span class="mr-2">${icons.sparkles}</span> 豆知識を聞く
             </button>
-            ${isVisited ? `
-            <button class="ask-gemini-diary bg-gradient-to-r from-blue-50 to-cyan-100 text-blue-700 hover:from-blue-100 hover:to-cyan-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center active:scale-95">
-              <span class="text-blue-500 mr-2">${icons.sparkles}</span> 訪問の感想文を下書きする
-            </button>
-            ` : ''}
+            ${isVisited ? `<button class="ask-gemini-diary bg-blue-50 text-blue-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center active:scale-95"><span class="mr-2">${icons.sparkles}</span> 感想文の下書き</button>` : ''}
           </div>
-          
-          ${state.isGeminiLoading ? `
-            <div class="mt-4 p-4 bg-gray-50 rounded-xl text-sm text-gray-500 flex flex-col items-center justify-center animate-pulse border border-gray-100">
-              <span class="text-2xl mb-2 block animate-spin">✨</span>
-              <p>Geminiが考えています...</p>
-            </div>
-          ` : state.geminiResult ? `
-            <div class="mt-4 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl text-sm text-gray-800 leading-relaxed border border-purple-100 shadow-inner">
-              <div class="flex items-center text-purple-800 font-bold mb-2 pb-2 border-b border-purple-200/50">
-                <span class="mr-1">${icons.sparkles}</span> Geminiからのメッセージ
-              </div>
-              <p class="whitespace-pre-wrap">${state.geminiResult}</p>
-            </div>
-          ` : ''}
-        </div>
-      `;
+          ${state.isGeminiLoading ? `<div class="mt-4 p-4 bg-gray-50 rounded-xl text-sm text-center animate-pulse border border-gray-100"><span class="text-2xl mb-2 block animate-spin">✨</span>考えています...</div>` : state.geminiResult ? `<div class="mt-4 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl text-sm text-gray-800 leading-relaxed border border-purple-100 shadow-inner"><div class="flex items-center text-purple-800 font-bold mb-2 pb-1 border-b border-purple-200/50"><span class="mr-1">${icons.sparkles}</span> Geminiからのメッセージ</div><p class="whitespace-pre-wrap">${state.geminiResult}</p></div>` : ''}
+        </div>`;
 
       modalRoot.innerHTML = `
-        <div class="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 transition-opacity close-modal-bg">
+        <div class="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 close-modal-bg transition-opacity">
           <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 pb-10 sm:pb-6 shadow-2xl slide-in max-h-[90vh] overflow-y-auto no-scrollbar">
             <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 sm:hidden"></div>
-            
             <div class="flex justify-between items-start mb-4">
-              <div class="w-16 h-16 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-3xl font-bold shadow-inner shrink-0">
-                ${place.kana}
-              </div>
-              <button class="close-modal-btn p-2 bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors ml-4 shrink-0">
-                ${icons.x}
-              </button>
+              <div class="w-16 h-16 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-3xl font-bold shrink-0 shadow-inner">${place.kana}</div>
+              <button class="close-modal-btn p-2 bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors ml-4 shrink-0">${icons.x}</button>
             </div>
-            
-            <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-4 leading-relaxed">
-              ${place.text}
-            </h3>
-            
-            <div class="bg-gray-50 rounded-xl p-3 mb-6 border border-gray-100">
-              <p class="text-gray-600 font-medium flex items-center">
-                <span class="text-blue-500 mr-2 shrink-0">${icons.mapPin}</span>
-                <span class="break-words">${place.place}</span>
-              </p>
-            </div>
-            
-            <button class="toggle-visit-btn w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center transition-all active:scale-[0.98] ${btnClass}">
-              ${isVisited 
-                ? `<span class="mr-2">${icons.checkCircle}</span> 行った！（タップで取り消し）`
-                : `<span class="mr-2">${icons.compass}</span> この場所に行った！`
-              }
-            </button>
-
-            <!-- Gemini AI機能エリア -->
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-4 leading-relaxed">${place.text}</h3>
+            <div class="bg-gray-50 rounded-xl p-3 mb-6 border border-gray-100"><p class="text-gray-600 font-medium flex items-center"><span class="text-blue-500 mr-2 shrink-0">${icons.mapPin}</span><span class="break-words">${place.place}</span></p></div>
+            <button class="toggle-visit-btn w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center transition-all active:scale-[0.98] ${btnClass}">${isVisited ? `<span class="mr-2">${icons.checkCircle}</span> 行った！（タップで取り消し）` : `<span class="mr-2">${icons.compass}</span> この場所に行った！`}</button>
             ${geminiUI}
-            
           </div>
-        </div>
-      `;
+        </div>`;
     }
 
     function triggerAnimation() {
@@ -639,15 +494,9 @@
       setTimeout(() => { animationRoot.innerHTML = ''; }, 4000);
     }
 
-    // --- イベントリスナー設定 ---
-    
     searchInput.addEventListener('input', (e) => {
       state.searchQuery = e.target.value;
-      if (state.searchQuery) {
-        clearSearchBtn.classList.remove('hidden');
-      } else {
-        clearSearchBtn.classList.add('hidden');
-      }
+      clearSearchBtn.classList.toggle('hidden', !state.searchQuery);
       renderAll();
     });
 
@@ -661,50 +510,35 @@
     document.body.addEventListener('click', (e) => {
       const placeBtn = e.target.closest('.place-btn');
       if (placeBtn) {
-        const id = placeBtn.dataset.id;
-        state.selectedPlace = placesData.find(p => p.id === id);
-        state.geminiResult = null; // AI結果のリセット
+        state.selectedPlace = placesData.find(p => p.id === placeBtn.dataset.id);
+        state.geminiResult = null;
         state.isGeminiLoading = false;
         renderModal();
         return;
       }
-
-      const toggleBtn = e.target.closest('.toggle-visit-btn');
-      if (toggleBtn && state.selectedPlace) {
+      if (e.target.closest('.toggle-visit-btn') && state.selectedPlace) {
         toggleVisit(state.selectedPlace.id);
         return;
       }
-
-      // Gemini機能のボタンクリック処理
-      const triviaBtn = e.target.closest('.ask-gemini-trivia');
-      if (triviaBtn && state.selectedPlace) {
+      if (e.target.closest('.ask-gemini-trivia') && state.selectedPlace) {
         askGemini("trivia", state.selectedPlace);
         return;
       }
-
-      const diaryBtn = e.target.closest('.ask-gemini-diary');
-      if (diaryBtn && state.selectedPlace) {
+      if (e.target.closest('.ask-gemini-diary') && state.selectedPlace) {
         askGemini("diary", state.selectedPlace);
         return;
       }
-
-      const closeBtn = e.target.closest('.close-modal-btn');
-      const closeBg = e.target.closest('.close-modal-bg');
-      if (closeBtn || (closeBg && e.target === closeBg)) {
+      if (e.target.closest('.close-modal-btn') || (e.target.closest('.close-modal-bg') && e.target === e.target.closest('.close-modal-bg'))) {
         state.selectedPlace = null;
-        state.geminiResult = null; // AI結果のリセット
+        state.geminiResult = null;
         state.isGeminiLoading = false;
         renderModal();
-        return;
       }
     });
 
-    // アプリケーション起動
     initFirebase();
     loadGoogleMaps();
-
   </script>
 </body>
 
 </html>
-
