@@ -127,7 +127,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // --- 設定情報の取得 ---
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'saitamakaruta-project-20-a6865';
@@ -307,7 +307,7 @@
       document.head.appendChild(script);
     }
 
-    // --- Firebase初期化とエラー修正 ---
+    // --- Firebase初期化 ---
     async function initFirebase() {
       try {
         const app = initializeApp(firebaseConfig);
@@ -315,7 +315,6 @@
         state.db = getFirestore(app);
         
         const initAuth = async () => {
-          // トークンの不一致 (auth/custom-token-mismatch) を回避するための try-catch
           try {
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
               await signInWithCustomToken(auth, __initial_auth_token);
@@ -323,7 +322,6 @@
               await signInAnonymously(auth);
             }
           } catch (tokenError) {
-            // トークンが不一致（外部環境）の場合は匿名ログインにフォールバック
             await signInAnonymously(auth);
           }
         };
@@ -360,7 +358,8 @@
       });
     }
 
-const resizeImage = (file) => {
+    // ★画像リサイズ処理（エラー防止とサイズ最適化）
+    const resizeImage = (file) => {
       return new Promise((resolve, reject) => {
         try {
           const reader = new FileReader();
@@ -391,6 +390,7 @@ const resizeImage = (file) => {
         }
       });
     };
+
     async function saveVisit(placeId, comment, finalPhoto) {
       if (!state.db || !state.user) return;
       state.isSaving = true;
@@ -403,16 +403,16 @@ const resizeImage = (file) => {
         await setDoc(placeRef, {
           visited: true,
           comment: comment || '',
-          photo: finalPhoto || state.visitedPlaces[placeId]?.photo || '',
+          photo: finalPhoto || '',
           timestamp: serverTimestamp(),
           userId: state.user.uid
         }, { merge: true });
 
         if (isNewVisit) triggerAnimation();
-        state.selectedPlace = null;
-　　　　 } catch (error) {
+        state.selectedPlace = null; // モーダルを閉じる
+      } catch (error) {
         console.error("Save error:", error);
-        alert("保存に失敗しました。写真のサイズが大きい可能性があります。"); // ← 追加
+        alert("保存に失敗しました。写真のサイズが大きい可能性があります。");
       } finally {
         state.isSaving = false;
         renderAll();
@@ -465,6 +465,11 @@ const resizeImage = (file) => {
       listContainer.innerHTML = filteredPlaces.map(place => {
         const visit = state.visitedPlaces[place.id];
         const isVisited = !!visit;
+        const hasPhoto = isVisited && visit.photo;
+        const containerClass = isVisited ? 'border-orange-300 bg-orange-50' : 'border-white bg-white shadow';
+        const iconClass = isVisited ? 'bg-orange-500 text-white' : 'bg-green-100 text-green-700';
+        
+        // ★リスト（一覧画面）に登録した写真を表示する処理を追加
         const thumbnailHtml = hasPhoto ? `
           <div class="w-12 h-12 rounded-full overflow-hidden mr-4 shrink-0 shadow-sm border-2 border-orange-200">
             <img src="${visit.photo}" class="w-full h-full object-cover" alt="写真">
@@ -585,7 +590,9 @@ const resizeImage = (file) => {
         return;
       }
       if (e.target.id === 'photo-input') return;
-if (e.target.closest('#save-btn')) {
+
+      // ★保存ボタン処理（削除・更新を正確に判定）
+      if (e.target.closest('#save-btn')) {
         const comment = document.getElementById('comment-input')?.value;
         const container = document.getElementById('photo-preview-container');
         const preview = document.getElementById('photo-preview');
@@ -601,6 +608,7 @@ if (e.target.closest('#save-btn')) {
         saveVisit(state.selectedPlace.id, comment, finalPhoto);
         return;
       }
+
       if (e.target.closest('#show-delete-confirm-btn')) {
         state.isConfirmingDelete = true;
         renderModal();
@@ -615,7 +623,8 @@ if (e.target.closest('#save-btn')) {
         executeDelete(state.selectedPlace.id);
         return;
       }
-// ★写真削除処理
+
+      // ★写真削除処理
       if (e.target.closest('#remove-photo-btn')) {
         const container = document.getElementById('photo-preview-container');
         if (container) {
@@ -629,7 +638,8 @@ if (e.target.closest('#save-btn')) {
       }
     });
 
-document.body.addEventListener('change', async (e) => {
+    // ★画像選択時のプレビュー表示処理
+    document.body.addEventListener('change', async (e) => {
       if (e.target.id === 'photo-input') {
         const file = e.target.files[0];
         if (file) {
