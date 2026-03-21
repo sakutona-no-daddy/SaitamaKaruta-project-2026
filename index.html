@@ -360,28 +360,38 @@
       });
     }
 
-    const resizeImage = (file) => {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-          const img = new Image();
-          img.src = event.target.result;
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 800;
-            const scaleSize = MAX_WIDTH / img.width;
-            canvas.width = MAX_WIDTH;
-            canvas.height = img.height * scaleSize;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
+const resizeImage = (file) => {
+      return new Promise((resolve, reject) => {
+        try {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              // サイズを600pxに抑えて保存容量エラーを防止
+              const MAX_WIDTH = 600;
+              let scaleSize = 1;
+              if (img.width > MAX_WIDTH) {
+                scaleSize = MAX_WIDTH / img.width;
+              }
+              canvas.width = img.width * scaleSize;
+              canvas.height = img.height * scaleSize;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              // 品質を0.6に下げてデータサイズをさらに圧縮
+              resolve(canvas.toDataURL('image/jpeg', 0.6));
+            };
+            img.onerror = (e) => reject(e);
+            img.src = event.target.result;
           };
-        };
+          reader.onerror = (e) => reject(e);
+          reader.readAsDataURL(file);
+        } catch (err) {
+          reject(err);
+        }
       });
     };
-
-    async function saveVisit(placeId, comment, photoBase64) {
+    async function saveVisit(placeId, comment, finalPhoto) {
       if (!state.db || !state.user) return;
       state.isSaving = true;
       renderModal();
@@ -393,15 +403,16 @@
         await setDoc(placeRef, {
           visited: true,
           comment: comment || '',
-          photo: photoBase64 || state.visitedPlaces[placeId]?.photo || '',
+          photo: finalPhoto || state.visitedPlaces[placeId]?.photo || '',
           timestamp: serverTimestamp(),
           userId: state.user.uid
         }, { merge: true });
 
         if (isNewVisit) triggerAnimation();
         state.selectedPlace = null;
-      } catch (error) {
+　　　　 } catch (error) {
         console.error("Save error:", error);
+        alert("保存に失敗しました。写真のサイズが大きい可能性があります。"); // ← 追加
       } finally {
         state.isSaving = false;
         renderAll();
@@ -454,11 +465,17 @@
       listContainer.innerHTML = filteredPlaces.map(place => {
         const visit = state.visitedPlaces[place.id];
         const isVisited = !!visit;
-        const containerClass = isVisited ? 'border-orange-300 bg-orange-50' : 'border-white bg-white shadow';
-        const iconClass = isVisited ? 'bg-orange-500 text-white' : 'bg-green-100 text-green-700';
+        const thumbnailHtml = hasPhoto ? `
+          <div class="w-12 h-12 rounded-full overflow-hidden mr-4 shrink-0 shadow-sm border-2 border-orange-200">
+            <img src="${visit.photo}" class="w-full h-full object-cover" alt="写真">
+          </div>
+        ` : `
+          <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl mr-4 shrink-0 shadow-sm ${iconClass}">${place.kana}</div>
+        `;
+
         return `
           <div data-id="${place.id}" class="place-btn p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center active:scale-[0.98] ${containerClass}">
-            <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl mr-4 shrink-0 shadow-sm ${iconClass}">${place.kana}</div>
+            ${thumbnailHtml}
             <div class="flex-1 min-w-0 pr-2">
               <p class="font-bold text-gray-800 text-sm mb-1">${place.text}</p>
               <p class="text-xs text-gray-500 truncate flex items-center"><span class="mr-1 w-3 h-3">${icons.mapPin}</span>${place.place}</p>
@@ -497,7 +514,7 @@
                     <input type="file" id="photo-input" accept="image/*" class="hidden">
                   </label>
                 </div>
-                <div id="photo-preview-container" class="mt-3 relative ${visit.photo ? '' : 'hidden'}">
+                <div id="photo-preview-container" data-removed="false" class="mt-3 relative ${visit.photo ? '' : 'hidden'}">
                   <img id="photo-preview" src="${visit.photo || ''}" class="w-full h-48 object-cover rounded-xl border border-gray-100">
                   <button id="remove-photo-btn" class="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-black/70 transition-all">${icons.trash}</button>
                 </div>
@@ -568,10 +585,20 @@
         return;
       }
       if (e.target.id === 'photo-input') return;
-      if (e.target.closest('#save-btn')) {
+if (e.target.closest('#save-btn')) {
         const comment = document.getElementById('comment-input')?.value;
-        const photo = document.getElementById('photo-preview')?.src;
-        saveVisit(state.selectedPlace.id, comment, photo && photo.startsWith('data:') ? photo : null);
+        const container = document.getElementById('photo-preview-container');
+        const preview = document.getElementById('photo-preview');
+        
+        let finalPhoto = state.visitedPlaces[state.selectedPlace.id]?.photo || '';
+        
+        if (container?.dataset.removed === 'true') {
+          finalPhoto = '';
+        } else if (preview && preview.src && preview.src.startsWith('data:')) {
+          finalPhoto = preview.src;
+        }
+        
+        saveVisit(state.selectedPlace.id, comment, finalPhoto);
         return;
       }
       if (e.target.closest('#show-delete-confirm-btn')) {
@@ -588,24 +615,37 @@
         executeDelete(state.selectedPlace.id);
         return;
       }
+// ★写真削除処理
       if (e.target.closest('#remove-photo-btn')) {
+        const container = document.getElementById('photo-preview-container');
+        if (container) {
+          container.classList.add('hidden');
+          container.dataset.removed = 'true';
+        }
         const preview = document.getElementById('photo-preview');
         if (preview) preview.src = '';
-        document.getElementById('photo-preview-container')?.classList.add('hidden');
         const input = document.getElementById('photo-input');
         if (input) input.value = '';
       }
     });
 
-    document.body.addEventListener('change', async (e) => {
+document.body.addEventListener('change', async (e) => {
       if (e.target.id === 'photo-input') {
         const file = e.target.files[0];
         if (file) {
-          const base64 = await resizeImage(file);
-          const preview = document.getElementById('photo-preview');
-          if (preview) {
-            preview.src = base64;
-            document.getElementById('photo-preview-container')?.classList.remove('hidden');
+          try {
+            const base64 = await resizeImage(file);
+            const preview = document.getElementById('photo-preview');
+            const container = document.getElementById('photo-preview-container');
+            
+            if (preview && container) {
+              preview.src = base64;
+              container.classList.remove('hidden');
+              container.dataset.removed = 'false'; // 削除フラグをリセット
+            }
+          } catch (error) {
+            console.error("Image processing error:", error);
+            alert("写真の処理に失敗しました。別の写真をお試しください。");
           }
         }
       }
