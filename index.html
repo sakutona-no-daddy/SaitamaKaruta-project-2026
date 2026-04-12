@@ -13,12 +13,8 @@
       80% { opacity: 1; transform: translateY(-80vh) scale(1.2) rotate(15deg); }
       100% { transform: translateY(-100vh) scale(1.5) rotate(-15deg); opacity: 0; }
     }
-    .animate-celebration {
-      animation: pop-up linear forwards;
-    }
-    .slide-in {
-      animation: slide-in-up 0.3s ease-out forwards;
-    }
+    .animate-celebration { animation: pop-up linear forwards; }
+    .slide-in { animation: slide-in-up 0.3s ease-out forwards; }
     @keyframes slide-in-up {
       from { transform: translateY(100%); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
@@ -102,7 +98,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // --- 設定情報 ---
@@ -117,8 +113,8 @@
       appId: "1:607593944513:web:053a4db3bdef8281cfcb40"
     };
 
-    // ★ データ消失の原因となっていた保存先の名前を元に戻し、過去のデータを復活させます
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    // 今後データが迷子にならないよう、保存先(APP_ID)を固定します
+    const APP_ID = 'saitama-karuta-family-v1';
 
     // --- アイコン定義 ---
     const icons = {
@@ -222,33 +218,63 @@
       });
     }
 
+    function loadGoogleMaps() {
+      if (GOOGLE_MAPS_API_KEY.includes("YOUR_GOOGLE")) return;
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
     // --- Firebase ロジック ---
     async function initFirebase() {
       try {
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         state.db = getFirestore(app);
-        await signInAnonymously(auth);
+        
+        // エラー回避のための認証処理
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+        } catch (tokenError) {
+          // 環境が合わない場合は確実に匿名ログインにフォールバックする
+          await signInAnonymously(auth);
+        }
+
         onAuthStateChanged(auth, (user) => {
           state.user = user;
           if (user) setupFirestoreListener();
           renderAll();
         });
-      } catch (error) { console.error("Firebase Error:", error); }
+      } catch (error) { 
+        console.error("Firebase Error:", error); 
+      }
     }
 
+    let unsubscribeSnapshot = null;
     function setupFirestoreListener() {
       if (!state.user || !state.db) return;
-      const visitsRef = collection(state.db, 'artifacts', appId, 'public', 'data', 'family_visits');
-      onSnapshot(visitsRef, (snapshot) => {
+      // 固定したAPP_IDを使用してデータを読み込む
+      const visitsRef = collection(state.db, 'artifacts', APP_ID, 'public', 'data', 'family_visits');
+      
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+      
+      unsubscribeSnapshot = onSnapshot(visitsRef, (snapshot) => {
         const visits = {};
         snapshot.forEach(doc => { visits[doc.id] = doc.data(); });
         state.visitedPlaces = visits;
         renderAll();
-      }, (err) => console.error("DB Error:", err));
+      }, (err) => {
+        console.error("DB Error:", err);
+      });
     }
 
-    // ★ 圧縮率をさらに高める処理 (どんなサイズの写真でも確実に1MB以下に抑える)
+    // ★ 写真の圧縮処理（長辺300pxまで縮小し、確実に容量を下げる）
     const resizeImage = (file) => {
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -258,12 +284,11 @@
           img.src = e.target.result;
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            // データサイズを確実に減らすため、最大サイズを400pxに設定します
-            const MAX_SIZE = 400; 
+            // サイズを大幅に小さくする（300px）
+            const MAX_SIZE = 300; 
             let width = img.width;
             let height = img.height;
 
-            // 長辺を基準に縮小比率を計算 (縦長・横長両方に対応)
             if (width > height) {
               if (width > MAX_SIZE) {
                 height *= MAX_SIZE / width;
@@ -281,23 +306,15 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             
-            // データサイズが 約700KB(Base64で70万文字) を下回るまで画質を自動で下げる
-            let quality = 0.7;
+            // JPEG圧縮率を下げ、確実に500KB以下にする
+            let quality = 0.6;
             let dataUrl = canvas.toDataURL('image/jpeg', quality);
             
-            while (dataUrl.length > 700000 && quality > 0.1) {
+            while (dataUrl.length > 500000 && quality > 0.1) {
               quality -= 0.1;
               dataUrl = canvas.toDataURL('image/jpeg', quality);
             }
 
-            // 万が一それでも大きい場合は、さらに解像度を半分にして強制圧縮
-            if (dataUrl.length > 700000) {
-              canvas.width = width / 2;
-              canvas.height = height / 2;
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              dataUrl = canvas.toDataURL('image/jpeg', 0.5);
-            }
-            
             resolve(dataUrl);
           };
         };
@@ -305,26 +322,23 @@
     };
 
     async function saveVisit(placeId, comment, photoBase64) {
-      if (!state.db || !state.user) return;
-
-      // ★ データサイズの安全確認
-      if (photoBase64 && photoBase64.length > 900000) {
-        alert("写真のデータサイズがまだ大きすぎます。別の写真を選ぶか、スクリーンショットなどで容量を小さくしてください。");
-        state.isSaving = false; // エラー時はボタンの状態を元に戻す
-        renderModal();
+      if (!state.db || !state.user) {
+        alert("データベースの準備ができていません。少し待ってから再度お試しください。");
         return;
       }
 
       state.isSaving = true; renderModal();
       try {
-        const placeRef = doc(state.db, 'artifacts', appId, 'public', 'data', 'family_visits', placeId);
+        // 固定したAPP_IDを使用してデータを保存する
+        const placeRef = doc(state.db, 'artifacts', APP_ID, 'public', 'data', 'family_visits', placeId);
         const isNew = !state.visitedPlaces[placeId];
-        await setDoc(placeRef, { visited: true, comment: comment || '', photo: photoBase64 || state.visitedPlaces[placeId]?.photo || '', timestamp: serverTimestamp() }, { merge: true });
+        await setDoc(placeRef, { visited: true, comment: comment || '', photo: photoBase64 || state.visitedPlaces[placeId]?.photo || '', timestamp: serverTimestamp(), userId: state.user.uid }, { merge: true });
         if (isNew) triggerAnimation();
         state.selectedPlace = null;
       } catch (e) { 
-        console.error(e); 
-        alert("保存に失敗しました。写真のサイズが大きい可能性があります。");
+        console.error("Save error detailed:", e); 
+        // 何が原因で保存できなかったか、正確なエラーを画面に出す
+        alert("保存エラー: " + e.message + "\n(※通信環境や設定をご確認ください)");
       } finally { 
         state.isSaving = false; renderAll(); 
       }
@@ -334,9 +348,9 @@
       if (!state.db) return;
       state.isSaving = true; renderModal();
       try {
-        await deleteDoc(doc(state.db, 'artifacts', appId, 'public', 'data', 'family_visits', placeId));
+        await deleteDoc(doc(state.db, 'artifacts', APP_ID, 'public', 'data', 'family_visits', placeId));
         state.isConfirmingDelete = false; state.selectedPlace = null;
-      } catch (e) { console.error(e); } finally { state.isSaving = false; renderAll(); }
+      } catch (e) { console.error(e); alert("削除エラー: " + e.message); } finally { state.isSaving = false; renderAll(); }
     }
 
     // --- 描画 ---
