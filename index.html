@@ -247,7 +247,7 @@
       }, (err) => console.error("DB Error:", err));
     }
 
-    // ★ 圧縮率を極限まで高める処理 (MAX_WIDTHを800->600に、画質を0.7->0.5に低減)
+    // ★ 圧縮率をさらに高める処理 (どんなサイズの写真でも確実に1MB以下に抑える)
     const resizeImage = (file) => {
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -257,14 +257,38 @@
           img.src = e.target.result;
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 600; 
-            let scaleSize = MAX_WIDTH / img.width;
-            if (scaleSize > 1) scaleSize = 1; // 元画像より小さい場合は拡大しない
-            canvas.width = img.width * scaleSize; 
-            canvas.height = img.height * scaleSize;
-            const ctx = canvas.getContext('2d'); 
+            const MAX_SIZE = 600; // 長辺の最大サイズ
+            let width = img.width;
+            let height = img.height;
+
+            // 長辺を基準に縮小比率を計算 (縦長・横長両方に対応)
+            if (width > height) {
+              if (width > MAX_SIZE) {
+                height *= MAX_SIZE / width;
+                width = MAX_SIZE;
+              }
+            } else {
+              if (height > MAX_SIZE) {
+                width *= MAX_SIZE / height;
+                height = MAX_SIZE;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL('image/jpeg', 0.5));
+            
+            // データサイズが 1MB(Base64で約90万文字) を下回るまで画質を自動で下げる
+            let quality = 0.7;
+            let dataUrl = canvas.toDataURL('image/jpeg', quality);
+            
+            while (dataUrl.length > 900000 && quality > 0.1) {
+              quality -= 0.1;
+              dataUrl = canvas.toDataURL('image/jpeg', quality);
+            }
+            
+            resolve(dataUrl);
           };
         };
       });
